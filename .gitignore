@@ -1,0 +1,5 @@
+node_modules/
+.env
+tournaments.json
+players.json
+pending-verifications.json
