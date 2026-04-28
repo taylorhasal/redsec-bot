@@ -1,4 +1,9 @@
 require('dotenv').config();
+console.log('[Redsec] Starting...');
+console.log('[Redsec] TOKEN set:', !!process.env.TOKEN);
+console.log('[Redsec] CLIENT_ID set:', !!process.env.CLIENT_ID);
+console.log('[Redsec] GUILD_ID set:', !!process.env.GUILD_ID);
+require('./deploy-commands.js');
 const { Client, GatewayIntentBits, Collection, ChannelType } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
