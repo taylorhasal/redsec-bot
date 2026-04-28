@@ -24,16 +24,17 @@ module.exports = {
                 .setRequired(true))
         .addStringOption(option =>
             option.setName('platform')
-                .setDescription('Platform (default: PC)')
+                .setDescription('Platform (default: ea)')
                 .addChoices(
-                    { name: 'PC',            value: 'pc' },
-                    { name: 'PlayStation 5', value: 'ps5' },
-                    { name: 'Xbox Series',   value: 'xboxseries' }
+                    { name: 'EA', value: 'ea' },
+                    { name: 'Steam', value: 'steam' },
+                    { name: 'PlayStation', value: 'psn' },
+                    { name: 'Xbox',   value: 'xbox' },
                 )),
 
     async execute(interaction) {
         const eaId     = interaction.options.getString('ea_id');
-        const platform = interaction.options.getString('platform') ?? 'pc';
+        const platform = interaction.options.getString('platform') ?? 'ea';
 
         await interaction.deferReply({ ephemeral: true });
 
