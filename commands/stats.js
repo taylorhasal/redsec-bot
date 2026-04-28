@@ -28,16 +28,18 @@ module.exports = {
                 .setRequired(false))
         .addStringOption(option =>
             option.setName('platform')
-                .setDescription('Platform (default: PC)')
+                .setDescription('Platform (default: EA)')
                 .addChoices(
-                    { name: 'PC',            value: 'pc' },
-                    { name: 'PlayStation 5', value: 'ps5' },
-                    { name: 'Xbox Series',   value: 'xboxseries' }
+                    { name: 'EA',         value: 'ea' },
+                    { name: 'Steam',      value: 'steam' },
+                    { name: 'PlayStation', value: 'psn' },
+                    { name: 'Xbox',       value: 'xbox' },
+                    { name: 'Epic',       value: 'epic' },
                 )),
 
     async execute(interaction) {
         let eaId     = interaction.options.getString('ea_id');
-        let platform = interaction.options.getString('platform') ?? 'pc';
+        let platform = interaction.options.getString('platform') ?? 'ea';
 
         // Default to caller's verified account when no ea_id is provided
         if (!eaId) {
@@ -75,7 +77,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
             .setTitle(`⚔️  ${displayName}  —  Redsec`)
-            .setDescription(`Platform: \`${platform.toUpperCase()}\`  ·  Duos & Quads · All Seasons`)
+            .setDescription(`Platform: \`${platform.toUpperCase()}\`  ·  Duos, Quads & Solo · All Seasons`)
             .addFields(
                 {
                     name: '⚔️  K / D',
