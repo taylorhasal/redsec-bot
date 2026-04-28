@@ -164,4 +164,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
 });
 
-client.login(process.env.TOKEN);
+process.on('unhandledRejection', err => console.error('[FATAL] Unhandled rejection:', err));
+
+console.log('[Redsec] Logging in...');
+client.login(process.env.TOKEN).catch(err => console.error('[FATAL] Login failed:', err));
