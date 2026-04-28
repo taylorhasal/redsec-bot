@@ -1,3 +1,4 @@
+require('./deploy-commands.js');
 require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, ChannelType } = require('discord.js');
 const fs   = require('fs');
