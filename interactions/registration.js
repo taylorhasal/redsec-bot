@@ -1,6 +1,6 @@
 const {
     ModalBuilder, TextInputBuilder, TextInputStyle,
-    StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder,
+    StringSelectMenuBuilder, UserSelectMenuBuilder, ActionRowBuilder, EmbedBuilder,
     ButtonBuilder, ButtonStyle,
 } = require('discord.js');
 const fs   = require('fs');
@@ -57,6 +57,7 @@ async function buildVerifiedOptions(guild, tournament, excludeIds = []) {
             value:       userId,
         });
     }
+    options.sort((a, b) => a.label.localeCompare(b.label));
     return options.slice(0, 25); // Discord max
 }
 
@@ -263,19 +264,11 @@ async function handleTeamNameModal(interaction, client) {
         });
     }
 
-    const options = await buildVerifiedOptions(interaction.guild, tournament, [interaction.user.id]);
-
-    if (options.length === 0) {
-        // No other verified players available — register solo immediately
-        return finalizeTeam(interaction, client, []);
-    }
-
-    const select = new StringSelectMenuBuilder()
+    const select = new UserSelectMenuBuilder()
         .setCustomId('team_player_select')
-        .setPlaceholder('Select up to 3 teammates (verified players only)')
+        .setPlaceholder('Search and select up to 3 teammates')
         .setMinValues(1)
-        .setMaxValues(Math.min(3, options.length))
-        .addOptions(options);
+        .setMaxValues(3);
 
     const soloBtn = new ButtonBuilder()
         .setCustomId('register_solo')
@@ -319,18 +312,12 @@ async function handleRosterAddButton(interaction) {
         return interaction.reply({ content: 'Your team is already full (4/4).', ephemeral: true });
     }
 
-    const options = await buildVerifiedOptions(interaction.guild, tournament, team.players);
-    if (options.length === 0) {
-        return interaction.reply({ content: 'No verified players are available to add.', ephemeral: true });
-    }
-
     const remainingSlots = 4 - team.players.length;
-    const select = new StringSelectMenuBuilder()
+    const select = new UserSelectMenuBuilder()
         .setCustomId(`roster_add_select:${teamId}`)
-        .setPlaceholder('Select a verified player to add')
+        .setPlaceholder('Search and select a player to add')
         .setMinValues(1)
-        .setMaxValues(Math.min(remainingSlots, options.length))
-        .addOptions(options);
+        .setMaxValues(remainingSlots);
 
     await interaction.reply({
         content: `**${team.name}** — ${team.players.length}/4 players. Select who to add:`,
