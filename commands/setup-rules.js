@@ -4,7 +4,7 @@ const FORMAT_CONTENT = [
     '▸ Teams of up 2 or 4, depending on if tourney is duo or quads',
     '▸ Lobby up with your team and load into public lobbies',
     '▸ Farm public lobbies for 2 hours, beginning at the designated start time',
-    '▸ Submit your **Top 2** scoring games for review',
+    '▸ Your top 2 games will be added to your teams score on the leaderboard',
     '▸ **Submission grace:** 35 minutes after the window closes',
 ].join('\n');
 
@@ -38,7 +38,7 @@ const CASEFILES_CONTENT = [
     '**①** Highest single-game kill count wins.',
     '**②** Still tied? Team with the single player with highest kill game wins',
     '**③** If ALL conditions match → prizes are **SPLIT**',
-    '> Both teams displayed as: `⚖️ TIE`',
+    'Both teams displayed as: `⚖️ TIE`',
 ].join('\n');
 
 function buildRulesEmbed() {
@@ -74,10 +74,7 @@ module.exports = {
 
         await guild.channels.fetch();
 
-        // Find the START HERE category to place the channel in (optional — falls back to no category)
-        const startHereCat = guild.channels.cache.find(
-            c => c.name === '🏁 START HERE' && c.type === ChannelType.GuildCategory
-        );
+        const CATEGORY_ID = '1498221740080234497';
 
         const readOnlyPerms = [
             { id: everyoneId, deny:  [PermissionFlagsBits.SendMessages] },
@@ -90,13 +87,12 @@ module.exports = {
         );
 
         if (!channel) {
-            const opts = {
+            channel = await guild.channels.create({
                 name:                '📋-rules',
                 type:                ChannelType.GuildText,
+                parent:              CATEGORY_ID,
                 permissionOverwrites: readOnlyPerms,
-            };
-            if (startHereCat) opts.parent = startHereCat.id;
-            channel = await guild.channels.create(opts);
+            });
         }
 
         // Post or refresh the rules embed
