@@ -69,7 +69,6 @@ module.exports = {
 
         const redsecIndex = parseFloat(((0.40 - s.kpm) * 25).toFixed(1));
         const displayName = data.userName ?? eaId;
-        const avatar      = data.avatar ?? null;
 
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
@@ -110,8 +109,6 @@ module.exports = {
                 { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: false },
             )
             .setTimestamp();
-
-        if (avatar) embed.setThumbnail(avatar);
 
         await interaction.editReply({ embeds: [embed] });
 

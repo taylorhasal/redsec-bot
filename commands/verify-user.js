@@ -61,7 +61,6 @@ module.exports = {
         const { kpm, kd, wins } = redsec;
         const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
         const resolvedName = data.userName ?? eaId;
-        const avatar       = data.avatar ?? null;
 
         const players = loadPlayers();
         players[target.id] = {
@@ -89,8 +88,6 @@ module.exports = {
             )
             .setFooter({ text: `Verified by ${interaction.user.tag}` })
             .setTimestamp();
-
-        if (avatar) embed.setThumbnail(avatar);
 
         await interaction.editReply({ embeds: [embed] });
 

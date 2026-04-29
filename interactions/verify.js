@@ -70,7 +70,6 @@ async function handleVerifyModal(interaction) {
     const { kpm, kd, wins } = redsec;
     const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
     const resolvedName = data.userName ?? eaId;
-    const avatar       = data.avatar ?? null;
 
     const players = loadPlayers();
     players[interaction.user.id] = {
@@ -98,8 +97,6 @@ async function handleVerifyModal(interaction) {
         )
         .setFooter({ text: 'Redsec · Verified' })
         .setTimestamp();
-
-    if (avatar) embed.setThumbnail(avatar);
 
     await interaction.editReply({ embeds: [embed] });
 
