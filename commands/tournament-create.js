@@ -209,12 +209,12 @@ module.exports = {
                         },
                         {
                             name:  '🎮  How to Submit Scores',
-                            value: `> After each game, go to ${scoreChannel} and click **Submit Game Score**.\n> Enter your kills, placement, and game number. A private thread will be created — upload your **scoreboard screenshot** there to confirm the score.`,
+                            value: `> Once the tournament is complete, go to ${scoreChannel} and click **Submit Game Score**.\n> Enter your game number (1 or 2), total team kills, and placement. A private thread will be created — upload your **scoreboard screenshot** there to confirm the score.`,
                             inline: false,
                         },
                         {
-                            name:  '🏆  Live Standings',
-                            value: `> Track the leaderboard in real-time at ${lbChannel}.\n> Both **Gross** (raw points) and **Net** (handicap-adjusted) rankings are shown.`,
+                            name:  '🏆  Post Tournament Leaderboard',
+                            value: `> Check out the leaderboard at ${lbChannel}.\n> Both **Gross** (raw points) and **Net** (handicap-adjusted) rankings are shown.`,
                             inline: false,
                         },
                         {
