@@ -16,7 +16,7 @@ function loadPlayers() {
 }
 function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null, 2), 'utf8'); }
 
-const BLANK = '​';
+const B = '​'; // zero-width space for blank inline field
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,18 +30,17 @@ module.exports = {
             option.setName('platform')
                 .setDescription('Platform (default: EA)')
                 .addChoices(
-                    { name: 'EA',         value: 'ea' },
-                    { name: 'Steam',      value: 'steam' },
+                    { name: 'EA',          value: 'ea' },
+                    { name: 'Steam',       value: 'steam' },
                     { name: 'PlayStation', value: 'psn' },
-                    { name: 'Xbox',       value: 'xbox' },
-                    { name: 'Epic',       value: 'epic' },
+                    { name: 'Xbox',        value: 'xbox' },
+                    { name: 'Epic',        value: 'epic' },
                 )),
 
     async execute(interaction) {
         let eaId     = interaction.options.getString('ea_id');
         let platform = interaction.options.getString('platform') ?? 'ea';
 
-        // Default to caller's verified account when no ea_id is provided
         if (!eaId) {
             const record = loadPlayers()[interaction.user.id];
             if (!record) {
@@ -51,7 +50,7 @@ module.exports = {
                 });
             }
             eaId     = record.eaId;
-            platform = record.platform ?? 'pc';
+            platform = record.platform ?? 'ea';
         }
 
         await interaction.deferReply();
@@ -76,54 +75,49 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
-            .setTitle(`⚔️  ${displayName}  —  Redsec`)
-            .setDescription(`Platform: \`${platform.toUpperCase()}\`  ·  Duos, Quads & Solo · All Seasons`)
+            .setTitle(`${displayName}  —  Redsec`)
+            .setDescription(`Platform: ${platform.toUpperCase()}  ·  Duo & Squad  ·  All Seasons`)
             .addFields(
-                {
-                    name: '⚔️  K / D',
-                    value: `K/D Ratio: \`${fmt(s.kd)}\``,
-                    inline: true,
-                },
-                {
-                    name: '🎯  Kills',
-                    value: [
-                        `Total:   \`${fmtInt(s.kills)}\``,
-                        `Per Min: \`${fmt(s.kpm)}\``,
-                    ].join('\n'),
-                    inline: true,
-                },
-                {
-                    name: '💀  Deaths',
-                    value: [
-                        `Total:   \`${fmtInt(s.deaths)}\``,
-                        `Per Min: \`${fmt(s.dpm)}\``,
-                    ].join('\n'),
-                    inline: true,
-                },
-                {
-                    name: '📊  Matches',
-                    value: `Wins: \`${fmtInt(s.wins)}\``,
-                    inline: true,
-                },
-                {
-                    name: '⏱️  Time Played',
-                    value: `\`${formatTime(s.timePlayed)}\``,
-                    inline: true,
-                },
-                {
-                    name: '📊  Redsec Index',
-                    value: `\`${formatIndex(redsecIndex)}\``,
-                    inline: true,
-                },
+                // Section headers
+                { name: 'Combat',       value: B, inline: true },
+                { name: B,              value: B, inline: true },
+                { name: 'Match Record', value: B, inline: true },
+
+                // Row: K/D | blank | Matches
+                { name: 'K/D Ratio',   value: fmt(s.kd),          inline: true },
+                { name: B,             value: B,                   inline: true },
+                { name: 'Matches',     value: fmtInt(s.matches),   inline: true },
+
+                // Row: Kills | blank | Wins
+                { name: 'Kills',       value: fmtInt(s.kills),     inline: true },
+                { name: B,             value: B,                   inline: true },
+                { name: 'Wins',        value: fmtInt(s.wins),      inline: true },
+
+                // Row: Deaths | blank | Losses
+                { name: 'Deaths',      value: fmtInt(s.deaths),    inline: true },
+                { name: B,             value: B,                   inline: true },
+                { name: 'Losses',      value: fmtInt(s.losses),    inline: true },
+
+                // Row: KPM | blank | Win %
+                { name: 'KPM',         value: fmt(s.kpm),          inline: true },
+                { name: B,             value: B,                   inline: true },
+                { name: 'Win %',       value: s.winPercent,        inline: true },
+
+                // Row: Revives | blank | Time Played
+                { name: 'Revives',     value: fmtInt(s.revives),   inline: true },
+                { name: B,             value: B,                   inline: true },
+                { name: 'Time Played', value: formatTime(s.timePlayed), inline: true },
+
+                // Redsec Index standalone
+                { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: false },
             )
-            .setFooter({ text: 'Redsec — Duos & Quads · All Seasons' })
             .setTimestamp();
 
         if (avatar) embed.setThumbnail(avatar);
 
         await interaction.editReply({ embeds: [embed] });
 
-        // Update profile if this user is verified and the ea_id matches their record
+        // Update profile if this user is looking up their own verified account
         const players = loadPlayers();
         const record  = players[interaction.user.id];
         if (record && record.eaId.toLowerCase() === (data.userName ?? eaId).toLowerCase()) {
@@ -139,7 +133,7 @@ module.exports = {
 function errorEmbed(description) {
     return new EmbedBuilder()
         .setColor(0x1a0000)
-        .setTitle('❌ Error')
+        .setTitle('Error')
         .setDescription(description)
         .setTimestamp();
 }

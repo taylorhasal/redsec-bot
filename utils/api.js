@@ -1,10 +1,7 @@
 const GAMETOOLS_BASE = 'https://api.gametools.network/bf6/stats/';
 
-// Gametools mode name filter: Duos and Quads only, no Gauntlet
-function isRedsecMode(name) {
-    const n = (name ?? '').toLowerCase();
-    return n === 'duos' || n === 'quads';
-}
+// Stable mode IDs for Redsec Duo and Redsec Squad
+const REDSEC_MODE_IDS = new Set(['gm_graniteDuo', 'gm_brsquad']);
 
 async function fetchPlayerStats(playerName, platform = 'pc') {
     const url = `${GAMETOOLS_BASE}?name=${encodeURIComponent(playerName)}&platform=${platform}`;
@@ -35,24 +32,22 @@ async function fetchPlayerStats(playerName, platform = 'pc') {
 }
 
 function extractRedsecStats(data) {
-    const seasons = data?.redsec;
-    if (!Array.isArray(seasons) || seasons.length === 0) return null;
+    const gameModes = data?.gameModes;
+    if (!Array.isArray(gameModes) || gameModes.length === 0) return null;
 
-    let kills = 0, deaths = 0, wins = 0, losses = 0, matches = 0, secondsPlayed = 0;
+    let kills = 0, deaths = 0, wins = 0, losses = 0, matches = 0, secondsPlayed = 0, revives = 0;
     let found = false;
 
-    for (const season of seasons) {
-        const modes = season.modes ?? [];
-        for (const mode of modes) {
-            if (!isRedsecMode(mode.mode)) continue;
-            found          = true;
-            kills         += mode.kills         ?? 0;
-            deaths        += mode.deaths        ?? 0;
-            wins          += mode.wins          ?? 0;
-            losses        += mode.losses        ?? 0;
-            matches       += mode.matches       ?? 0;
-            secondsPlayed += mode.secondsPlayed ?? 0;
-        }
+    for (const m of gameModes) {
+        if (!REDSEC_MODE_IDS.has(m.id)) continue;
+        found          = true;
+        kills         += m.kills         ?? 0;
+        deaths        += m.deaths        ?? 0;
+        wins          += m.wins          ?? 0;
+        losses        += m.losses        ?? 0;
+        matches       += m.matches       ?? 0;
+        secondsPlayed += m.secondsPlayed ?? 0;
+        revives       += m.revives       ?? 0;
     }
 
     if (!found) return null;
@@ -62,16 +57,15 @@ function extractRedsecStats(data) {
     const dpm            = minutesPlayed > 0 ? deaths / minutesPlayed : 0;
     const kd             = deaths  > 0 ? kills  / deaths  : kills;
     const winRate        = matches > 0 ? wins   / matches : 0;
+    const winPercent     = matches > 0 ? (wins / matches * 100).toFixed(1) + '%' : '0.0%';
     const killsPerMatch  = matches > 0 ? kills  / matches : null;
     const deathsPerMatch = matches > 0 ? deaths / matches : null;
 
     return {
-        kills, deaths,
-        wins, losses, matches,
+        kills, deaths, wins, losses, matches, revives,
         timePlayed: secondsPlayed,
-        kpm, dpm,
+        kpm, dpm, kd, winRate, winPercent,
         killsPerMatch, deathsPerMatch,
-        kd, winRate,
     };
 }
 
