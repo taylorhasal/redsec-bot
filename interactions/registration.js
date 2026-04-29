@@ -188,7 +188,7 @@ async function finalizeTeam(interaction, client, additionalIds) {
         players:         valid,
         teamIndex,
         rosterMessageId: null,
-        scores:          { game1: null, game2: null },
+        scores:          {},
     };
     save(tournament);
     pendingRegistrations.delete(captainId);

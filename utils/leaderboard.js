@@ -34,9 +34,15 @@ function computeRanks(sorted, scoreKey) {
     return ranks;
 }
 
+function hasUnofficialTop2(team) {
+    const allScores = Object.values(team.scores ?? {}).filter(g => g != null);
+    const top2 = [...allScores].sort((a, b) => b.gamePoints - a.gamePoints).slice(0, 2);
+    return top2.some(g => g.status !== 'official' && g.pending !== false);
+}
+
 function buildTable(sorted, scoreKey) {
     const colHdr = scoreKey === 'gross' ? 'GROSS' : '  NET';
-    const header = ` RK    TEAM (IDX)             CONF  ${colHdr}`;
+    const header = ` RK    TEAM (IDX)              SUBM  ${colHdr}`;
     const sep    = ' ' + '─'.repeat(header.length);
 
     if (sorted.length === 0) {
@@ -47,8 +53,9 @@ function buildTable(sorted, scoreKey) {
 
     const lines = sorted.map((t, i) => {
         const rkS   = ranks[i].padEnd(5);
-        const nameS = `${t.name} (${idxLabel(t.teamIndex)})`.slice(0, 22).padEnd(22);
-        const prog  = `${t.s.confirmed}/2`.padEnd(4);
+        const flag  = hasUnofficialTop2(t) ? '†' : ' ';
+        const nameS = `${t.name}${flag} (${idxLabel(t.teamIndex)})`.slice(0, 23).padEnd(23);
+        const prog  = `${t.s.official}/${t.s.submitted}`.padEnd(4);
         const score = scoreKey === 'gross'
             ? String(t.s.gross).padStart(5)
             : t.s.net.toFixed(1).padStart(6);
@@ -80,7 +87,7 @@ function buildLeaderboardEmbed(tournament) {
                 inline: false,
             },
         )
-        .setFooter({ text: `${tournament.name} · Tie-break: kills → placement → TIE` })
+        .setFooter({ text: `${tournament.name} · † unofficial · off/sub · Tie-break: kills → placement → TIE` })
         .setTimestamp();
 }
 

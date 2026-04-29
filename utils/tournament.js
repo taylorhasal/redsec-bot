@@ -54,10 +54,12 @@ function remove(id) {
 
 function getPlacementPoints(placement) {
     const p = parseInt(placement);
-    if (p === 1) return 20;
-    if (p === 2) return 16;
-    if (p === 3) return 12;
-    if (p <= 5)  return 10;
+    if (p === 1)  return 15;
+    if (p === 2)  return 12;
+    if (p === 3)  return 10;
+    if (p === 4)  return 8;
+    if (p === 5)  return 6;
+    if (p <= 10)  return 4;
     return 0;
 }
 
@@ -67,10 +69,9 @@ function calculateGamePoints(kills, placement) {
 
 function teamScoreSummary(team) {
     const allScores = Object.values(team.scores ?? {}).filter(g => g != null);
-    const confirmed  = allScores.filter(g => !g.pending);
 
-    // Top 2 confirmed games by game points (the rule)
-    const top2 = [...confirmed].sort((a, b) => b.gamePoints - a.gamePoints).slice(0, 2);
+    // Top 2 by gamePoints across ALL submitted scores (any status)
+    const top2 = [...allScores].sort((a, b) => b.gamePoints - a.gamePoints).slice(0, 2);
 
     const gross    = top2.reduce((sum, g) => sum + g.gamePoints, 0);
     const handicap = parseFloat((team.teamIndex * 2).toFixed(2));
@@ -79,12 +80,16 @@ function teamScoreSummary(team) {
     // Tie-breaker reference: highest-kill game in top 2, then best placement
     const tieRef = [...top2].sort((a, b) => b.kills - a.kills || a.placement - b.placement)[0];
 
+    // Backward compat: legacy scores use pending:boolean, new scores use status:string
+    const isOfficial = g => g.status === 'official' || g.pending === false;
+    const official   = allScores.filter(isOfficial).length;
+
     return {
         gross,
         net,
         handicap,
         submitted:         allScores.length,
-        confirmed:         confirmed.length,
+        official,
         bestGameKills:     tieRef?.kills     ?? 0,
         bestGamePlacement: tieRef?.placement ?? 99,
     };

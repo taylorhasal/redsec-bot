@@ -20,8 +20,8 @@ const {
     handleRosterDisbandConfirm,
     handleRosterDisbandCancel,
 } = require('./interactions/registration');
-const { handleSubmitScoreButton, handleScoreModal, handleEvidenceMessage, handleManageScoresButton, handleScoreEditButton, handleScoreDeleteButton } = require('./interactions/scoreSubmission');
-const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal } = require('./interactions/audit');
+const { handleSubmitScoreButton, handleScoreModal, handleEvidenceMessage, handleManageScoresButton, handleSubmitProofButton, handleScoreEditButton, handleScoreDeleteButton } = require('./interactions/scoreSubmission');
+const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal, handleScoreApprove, handleScoreReject } = require('./interactions/audit');
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
@@ -80,8 +80,11 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'manage_scores')        return handleManageScoresButton(interaction);
             if (interaction.customId.startsWith('remove_team:'))      return handleRemoveTeamButton(interaction);
             if (interaction.customId.startsWith('start_tournament:')) return handleStartTournamentButton(interaction);
-            if (interaction.customId.startsWith('score_edit:'))   return handleScoreEditButton(interaction);
-            if (interaction.customId.startsWith('score_delete:')) return handleScoreDeleteButton(interaction);
+            if (interaction.customId.startsWith('score_edit:'))    return handleScoreEditButton(interaction);
+            if (interaction.customId.startsWith('score_delete:'))  return handleScoreDeleteButton(interaction);
+            if (interaction.customId.startsWith('score_proof:'))   return handleSubmitProofButton(interaction);
+            if (interaction.customId.startsWith('score_approve:')) return handleScoreApprove(interaction);
+            if (interaction.customId.startsWith('score_reject:'))  return handleScoreReject(interaction);
             if (interaction.customId.startsWith('roster_add:'))         return handleRosterAddButton(interaction);
             if (interaction.customId.startsWith('roster_remove:'))      return handleRosterRemoveButton(interaction);
             if (interaction.customId.startsWith('roster_unregister:'))      return handleRosterUnregisterButton(interaction);

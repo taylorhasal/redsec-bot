@@ -127,19 +127,21 @@ module.exports = {
                     .setColor(0xCC0000)
                     .setTitle('🎮  Score Submissions')
                     .setDescription(
-                        'Team captains: click **Submit Game Score** after each game.\n\n' +
-                        'You will be asked for the game number (1 or 2), your total team kills, and your placement. ' +
-                        'A thread will be created for you to upload a scoreboard screenshot as evidence.'
+                        'Team captains: click **Submit Game Score** after each game — scores appear on the leaderboard immediately as unofficial.\n\n' +
+                        'Enter your game number, total team kills, and placement. Submit as many games as you want — the bot uses your **top 2** automatically.\n\n' +
+                        'After the tournament, use **Manage Submissions → Submit Proof** to upload screenshots for admin review.'
                     )
                     .addFields({
                         name: '📊 Point Tiers',
                         value: [
                             '`1 Kill = 1 Point`',
-                            '`1st → 20 pts`',
-                            '`2nd → 16 pts`',
-                            '`3rd → 12 pts`',
-                            '`4th–5th → 10 pts`',
-                            '`6th+ → 0 pts`',
+                            '`1st → 15 pts`',
+                            '`2nd → 12 pts`',
+                            '`3rd → 10 pts`',
+                            '`4th → 8 pts`',
+                            '`5th → 6 pts`',
+                            '`6th–10th → 4 pts`',
+                            '`11th+ → 0 pts`',
                         ].join('\n'),
                     })
                     .setFooter({ text: 'Redsec Tournament' }),

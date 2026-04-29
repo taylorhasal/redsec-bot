@@ -7,6 +7,8 @@ const path = require('path');
 const DATA_DIR     = require('../utils/dataDir');
 const PENDING_FILE = path.join(DATA_DIR, 'pending-verifications.json');
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
+const { loadAll, save } = require('../utils/tournament');
+const { updateLeaderboard } = require('../utils/leaderboard');
 
 function loadPending() {
     try { return JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8')); }
@@ -174,4 +176,97 @@ async function handleAuditAdjustModal(interaction) {
     );
 }
 
-module.exports = { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal };
+// ── Button: score_approve:{tournamentId}:{teamId}:{gameKey} ──────────────────
+async function handleScoreApprove(interaction) {
+    const [, tournamentId, teamId, gameKey] = interaction.customId.split(':');
+    const client = interaction.client;
+
+    const all = loadAll();
+    const tournament = all[tournamentId];
+    if (!tournament) return interaction.update({ content: 'Tournament not found.', components: [] });
+
+    const team  = tournament.teams?.[teamId];
+    const score = team?.scores?.[gameKey];
+    if (!score) return interaction.update({ content: 'Score not found.', components: [] });
+
+    score.status     = 'official';
+    score.approvedAt = new Date().toISOString();
+    save(tournament);
+    await updateLeaderboard(client, tournament);
+
+    if (score.evidenceThreadId) {
+        const thread = await client.channels.fetch(score.evidenceThreadId).catch(() => null);
+        if (thread) {
+            await thread.send('✅  Score approved by admin. Thread archived.').catch(() => {});
+            await thread.setLocked(true).catch(() => {});
+            await thread.setArchived(true).catch(() => {});
+        }
+    }
+
+    const gameLabel = gameKey.replace('game', 'Game ');
+    const embed = new EmbedBuilder()
+        .setColor(0x00CC44)
+        .setTitle('✅  Score Approved')
+        .addFields(
+            { name: '🏷️ Team',    value: `\`${team.name}\``,         inline: true },
+            { name: '🎮 Game',    value: `\`${gameLabel}\``,           inline: true },
+            { name: '📊 Points',  value: `\`${score.gamePoints}\``,    inline: true },
+        )
+        .setFooter({ text: `Approved by ${interaction.user.tag}` })
+        .setTimestamp();
+
+    await interaction.update({ embeds: [embed], components: [] });
+
+    await dmUser(client, team.captainId,
+        `✅  **${gameLabel}** score approved for **${team.name}** in **${tournament.name}**!\n` +
+        `Kills: \`${score.kills}\` · Placement: \`#${score.placement}\` · Points: \`${score.gamePoints}\``
+    );
+}
+
+// ── Button: score_reject:{tournamentId}:{teamId}:{gameKey} ───────────────────
+async function handleScoreReject(interaction) {
+    const [, tournamentId, teamId, gameKey] = interaction.customId.split(':');
+    const client = interaction.client;
+
+    const all = loadAll();
+    const tournament = all[tournamentId];
+    if (!tournament) return interaction.update({ content: 'Tournament not found.', components: [] });
+
+    const team  = tournament.teams?.[teamId];
+    const score = team?.scores?.[gameKey];
+    if (!score) return interaction.update({ content: 'Score not found.', components: [] });
+
+    const threadId = score.evidenceThreadId;
+    score.status           = 'unofficial';
+    score.evidenceThreadId = null;
+    save(tournament);
+
+    if (threadId) {
+        const thread = await client.channels.fetch(threadId).catch(() => null);
+        if (thread) {
+            await thread.send('❌  Proof rejected by admin. Please resubmit via **Manage Submissions → Submit Proof**.').catch(() => {});
+            await thread.setLocked(true).catch(() => {});
+            await thread.setArchived(true).catch(() => {});
+        }
+    }
+
+    const gameLabel = gameKey.replace('game', 'Game ');
+    const embed = new EmbedBuilder()
+        .setColor(0xCC0000)
+        .setTitle('❌  Score Proof Rejected')
+        .addFields(
+            { name: '🏷️ Team', value: `\`${team.name}\``,  inline: true },
+            { name: '🎮 Game', value: `\`${gameLabel}\``,   inline: true },
+        )
+        .setFooter({ text: `Rejected by ${interaction.user.tag}` })
+        .setTimestamp();
+
+    await interaction.update({ embeds: [embed], components: [] });
+
+    await dmUser(client, team.captainId,
+        `❌  **${gameLabel}** proof was rejected for **${team.name}** in **${tournament.name}**.\n` +
+        `The score still counts as unofficial. Use **Manage Submissions → Submit Proof** to try again.`
+    );
+}
+
+module.exports = { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal, handleScoreApprove, handleScoreReject };
