@@ -31,10 +31,8 @@ module.exports = {
                 .setDescription('Platform (default: EA)')
                 .addChoices(
                     { name: 'EA',          value: 'ea' },
-                    { name: 'Steam',       value: 'steam' },
                     { name: 'PlayStation', value: 'psn' },
                     { name: 'Xbox',        value: 'xbox' },
-                    { name: 'Epic',        value: 'epic' },
                 )),
 
     async execute(interaction) {

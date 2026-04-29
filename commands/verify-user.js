@@ -29,10 +29,8 @@ module.exports = {
                 .setRequired(true)
                 .addChoices(
                     { name: 'EA',          value: 'ea' },
-                    { name: 'Steam',       value: 'steam' },
                     { name: 'PlayStation', value: 'psn' },
                     { name: 'Xbox',        value: 'xbox' },
-                    { name: 'Epic',        value: 'epic' },
                 ))
         .addStringOption(option =>
             option.setName('username')

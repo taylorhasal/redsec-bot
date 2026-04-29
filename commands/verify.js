@@ -7,11 +7,9 @@ module.exports = {
 
     async execute(interaction) {
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('verify_platform:ea')    .setLabel('EA')          .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:steam') .setLabel('Steam')       .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:psn')   .setLabel('PlayStation') .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:xbox')  .setLabel('Xbox')        .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:epic')  .setLabel('Epic')        .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('verify_platform:ea')  .setLabel('EA')          .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('verify_platform:psn') .setLabel('PlayStation') .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('verify_platform:xbox').setLabel('Xbox')        .setStyle(ButtonStyle.Secondary),
         );
 
         await interaction.reply({
