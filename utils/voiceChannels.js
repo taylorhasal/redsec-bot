@@ -42,10 +42,21 @@ async function createTeamVoiceChannel(client, tournament, teamId, team) {
     const voiceCategory = await getOrCreateVoiceCategory(client, tournament);
     const parentId = voiceCategory?.id ?? tournament.categoryId;
 
+    // Only this team's registered players can join their channel
+    const permissionOverwrites = [
+        { id: guild.id,       deny:  ['ViewChannel', 'Connect'] },
+        { id: client.user.id, allow: ['ViewChannel', 'Connect', 'MoveMembers', 'ManageChannels'] },
+        ...(team.players ?? []).map(playerId => ({
+            id:    playerId,
+            allow: ['ViewChannel', 'Connect', 'Speak', 'Stream'],
+        })),
+    ];
+
     const vc = await guild.channels.create({
         name: team.name,
         type: ChannelType.GuildVoice,
         parent: parentId,
+        permissionOverwrites,
     }).catch(() => null);
 
     if (vc) {

@@ -22,7 +22,7 @@ const {
 } = require('./interactions/registration');
 const { handleSubmitScoreButton, handleScoreModal, handleEvidenceMessage, handleManageScoresButton, handleScoreEditButton, handleScoreDeleteButton } = require('./interactions/scoreSubmission');
 const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal } = require('./interactions/audit');
-const { handleRemoveTeamButton } = require('./interactions/tournamentAdmin');
+const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
 
@@ -78,7 +78,8 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'register_solo')  return handleRegisterSolo(interaction, client);
             if (interaction.customId === 'submit_score')         return handleSubmitScoreButton(interaction);
             if (interaction.customId === 'manage_scores')        return handleManageScoresButton(interaction);
-            if (interaction.customId.startsWith('remove_team:'))  return handleRemoveTeamButton(interaction);
+            if (interaction.customId.startsWith('remove_team:'))      return handleRemoveTeamButton(interaction);
+            if (interaction.customId.startsWith('start_tournament:')) return handleStartTournamentButton(interaction);
             if (interaction.customId.startsWith('score_edit:'))   return handleScoreEditButton(interaction);
             if (interaction.customId.startsWith('score_delete:')) return handleScoreDeleteButton(interaction);
             if (interaction.customId.startsWith('roster_add:'))         return handleRosterAddButton(interaction);

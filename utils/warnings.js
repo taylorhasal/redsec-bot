@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { loadAll, save } = require('./tournament');
 const { createAllTeamVoiceChannels } = require('./voiceChannels');
 
@@ -45,18 +45,22 @@ async function sendOneHourWarning(client, tournament) {
 }
 
 async function sendFiveMinWarning(client, tournament) {
-    const incomplete = getIncompleteTeams(tournament);
-    if (incomplete.length === 0) return;
-
     const guild = client.guilds.cache.get(tournament.guildId);
     if (!guild) return;
 
     const auditChannel = guild.channels.cache.find(c => c.name.includes('admin-audit'));
     if (!auditChannel) return;
 
-    const lines = incomplete.map(({ team }) => `**${team.name}** — ${team.players.length}/4 players`);
+    const incomplete = getIncompleteTeams(tournament);
 
-    const rows = incomplete.slice(0, 5).map(({ teamId, team }) =>
+    const startRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`start_tournament:${tournament.id}`)
+            .setLabel(`▶  Start ${tournament.name}`)
+            .setStyle(ButtonStyle.Success)
+    );
+
+    const removeRows = incomplete.slice(0, 4).map(({ teamId, team }) =>
         new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`remove_team:${tournament.id}:${teamId}`)
@@ -65,14 +69,17 @@ async function sendFiveMinWarning(client, tournament) {
         )
     );
 
+    const rosterNote = incomplete.length > 0
+        ? `\n\n**Incomplete rosters:**\n` + incomplete.map(({ team }) => `**${team.name}** — ${team.players.length}/4 players`).join('\n') +
+          `\n\nUse the buttons below to remove incomplete teams before starting.`
+        : `\n\nAll rosters are complete. Ready to start.`;
+
     await auditChannel.send({
         content:
-            `🚨 **5-Minute Warning — Incomplete Rosters**\n` +
-            `**${tournament.name}** starts in ~5 minutes.\n\n` +
-            `The following teams have incomplete rosters:\n` +
-            lines.join('\n') +
-            `\n\nUse the buttons below to remove a team from the tournament.`,
-        components: rows,
+            `🚨 **5-Minute Warning**\n` +
+            `**${tournament.name}** starts in ~5 minutes.` +
+            rosterNote,
+        components: [startRow, ...removeRows],
     });
 }
 
