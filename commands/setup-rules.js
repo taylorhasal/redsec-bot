@@ -29,7 +29,7 @@ const INDEX_CONTENT = [
     '**Gross Score** = Kills + Placement Points',
     '**Net Score** = Gross + (Team Index × 2)',
     '',
-    'The index is a handicap — some players receive a bonus, other players receive a penalty. We analyze your lifetime Redsec stats to find your Personal Par. This allows us to run a Net Score leaderboard where a casual squad can realistically beat a pro squad — by simply playing better than their own average. Run `/profile` to see your index.',
+    'The index is a handicap — some players receive a bonus, other players receive a penalty. We analyze your lifetime Redsec stats to find your Personal Par. This allows us to run a Net Score leaderboard where a casual squad can realistically beat a pro squad — by simply playing better than their own average. Run `/stats` to see your index.',
 ].join('\n');
 
 const CASEFILES_CONTENT = [
