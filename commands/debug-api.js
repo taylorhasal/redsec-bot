@@ -38,35 +38,22 @@ module.exports = {
             return interaction.editReply('`data.redsec` is missing or not an array.');
         }
 
-        // Build a table of every season → mode with raw field values
-        const INCLUDED = new Set(['duos', 'quads']);
+        // Dump every field for every season → mode
+        const INCLUDED = new Set(['duos', 'quads', 'solo']);
         const lines = [];
-        let totMatches = 0, totWins = 0, totLosses = 0, totKills = 0;
 
         for (const season of seasons) {
-            lines.push(`\n── ${season.season} ──`);
+            lines.push(`\n━━ ${season.season} ━━`);
             for (const m of season.modes ?? []) {
                 const included = INCLUDED.has((m.mode ?? '').toLowerCase());
-                const losses   = m.losses ?? m.loses ?? '?';
                 const mark     = included ? '✓' : '✗';
-                lines.push(
-                    `${mark} ${(m.mode ?? '?').padEnd(10)}  matches:${String(m.matches ?? '?').padStart(4)}` +
-                    `  wins:${String(m.wins ?? '?').padStart(4)}  losses:${String(losses).padStart(4)}` +
-                    `  kills:${String(m.kills ?? '?').padStart(5)}` +
-                    `  losses_key:"${m.losses !== undefined ? 'losses' : m.loses !== undefined ? 'loses' : 'MISSING'}"`
-                );
-                if (included) {
-                    totMatches += m.matches ?? 0;
-                    totWins    += m.wins    ?? 0;
-                    totLosses  += m.losses ?? m.loses ?? 0;
-                    totKills   += m.kills   ?? 0;
+                lines.push(`\n${mark} Mode: ${m.mode ?? '?'}`);
+                for (const [key, val] of Object.entries(m)) {
+                    if (key === 'mode' || key === 'modeId') continue;
+                    lines.push(`   ${key.padEnd(18)} ${val}`);
                 }
             }
         }
-
-        lines.push(`\n── Aggregated totals (✓ modes only) ──`);
-        lines.push(`matches:${totMatches}  wins:${totWins}  losses:${totLosses}  kills:${totKills}`);
-        lines.push(`(top-level matchesPlayed: ${data.matchesPlayed ?? 'N/A'})`);
 
         const table = lines.join('\n');
         const chunks = [];
