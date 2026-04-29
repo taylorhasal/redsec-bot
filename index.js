@@ -109,15 +109,10 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        // ── User select menus ─────────────────────────────────────────────────
-        if (interaction.isUserSelectMenu()) {
-            if (interaction.customId === 'team_player_select')             return handleTeamPlayerSelect(interaction, client);
-            if (interaction.customId.startsWith('roster_add_select:'))    return handleRosterAddSelect(interaction, client);
-            return;
-        }
-
-        // ── String select menus ───────────────────────────────────────────────
+        // ── Select menus ──────────────────────────────────────────────────────
         if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'team_player_select')              return handleTeamPlayerSelect(interaction, client);
+            if (interaction.customId.startsWith('roster_add_select:'))    return handleRosterAddSelect(interaction, client);
             if (interaction.customId.startsWith('roster_remove_select:')) return handleRosterRemoveSelect(interaction, client);
             return;
         }
