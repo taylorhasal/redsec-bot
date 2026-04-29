@@ -1,66 +1,81 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
+const { fetchPlayerStats, extractRedsecStats, buildErrorMessage } = require('../utils/api');
+const { buildStatsEmbed } = require('./stats');
+const fs   = require('fs');
 const path = require('path');
 
-const PLAYERS_FILE = path.join(__dirname, '..', 'players.json');
+const DATA_DIR     = require('../utils/dataDir');
+const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 
 function loadPlayers() {
-    try {
-        return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8'));
-    } catch {
-        return {};
-    }
+    try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
+    catch { return {}; }
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('profile')
-        .setDescription("View a verified member's Redsec profile")
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('The Discord member to look up')
-                .setRequired(true)),
+        .setDescription("View a verified player's Redsec stats")
+        .addStringOption(option =>
+            option.setName('player')
+                .setDescription('Start typing an EA ID to search verified players')
+                .setRequired(true)
+                .setAutocomplete(true)),
+
+    async autocomplete(interaction) {
+        const typed   = interaction.options.getFocused().toLowerCase();
+        const players = loadPlayers();
+
+        const choices = Object.entries(players)
+            .filter(([, r]) => r.eaId?.toLowerCase().includes(typed))
+            .slice(0, 25)
+            .map(([discordId, r]) => ({
+                name:  `${r.eaId} (${r.platform?.toUpperCase() ?? '?'})`,
+                value: discordId,
+            }));
+
+        await interaction.respond(choices);
+    },
 
     async execute(interaction) {
-        const target  = interaction.options.getUser('user');
-        const players = loadPlayers();
-        const record  = players[target.id];
+        const discordId = interaction.options.getString('player');
+        const players   = loadPlayers();
+        const record    = players[discordId];
 
         if (!record) {
             return interaction.reply({
-                embeds: [errorEmbed(`${target.username} has not verified their EA ID.`)],
+                embeds: [errorEmbed('Player not found or not verified.')],
                 ephemeral: true,
             });
         }
 
-        const winRatePct = record.winRate != null
-            ? `\`${(record.winRate * 100).toFixed(1)}%\``
-            : '`N/A`';
+        await interaction.deferReply();
 
-        const embed = new EmbedBuilder()
-            .setColor(0xCC0000)
-            .setTitle(`🎖️  ${record.eaId}  —  Redsec Profile`)
-            .setDescription(`Discord: ${target}`)
-            .addFields(
-                { name: '🪪 EA ID',        value: `\`${record.eaId}\``,                         inline: true },
-                { name: '🖥️ Platform',     value: `\`${record.platform.toUpperCase()}\``,        inline: true },
-                { name: '​',          value: '​',                                       inline: true },
-                { name: '⚔️ K/D Ratio',   value: `\`${record.kd?.toFixed(2) ?? 'N/A'}\``,       inline: true },
-                { name: '📈 Win Rate',     value: winRatePct,                                    inline: true },
-                { name: '📊 Redsec Index', value: `\`${record.redsecIndex?.toFixed(2) ?? 'N/A'}\``, inline: true },
-            )
-            .setThumbnail(target.displayAvatarURL())
-            .setFooter({ text: `Verified · ${new Date(record.verifiedAt).toLocaleDateString()}` })
-            .setTimestamp();
+        let data;
+        try {
+            data = await fetchPlayerStats(record.eaId, record.platform);
+        } catch (err) {
+            return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
+        }
 
-        await interaction.reply({ embeds: [embed] });
+        const s = extractRedsecStats(data);
+        if (!s) {
+            return interaction.editReply({
+                embeds: [errorEmbed(`No Redsec combat history found for \`${record.eaId}\`.`)],
+            });
+        }
+
+        const redsecIndex = parseFloat(((0.40 - s.kpm) * 25).toFixed(1));
+        const displayName = data.userName ?? record.eaId;
+
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, record.platform, s, redsecIndex)] });
     },
 };
 
 function errorEmbed(description) {
     return new EmbedBuilder()
         .setColor(0x1a0000)
-        .setTitle('❌ Not Found')
+        .setTitle('Error')
         .setDescription(description)
         .setTimestamp();
 }
