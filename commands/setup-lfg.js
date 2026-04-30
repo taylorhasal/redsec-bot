@@ -64,10 +64,19 @@ module.exports = {
             { id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
         ]);
 
+        // ── 🔍 Looking for Squad — voice trigger ─────────────────────────────
+        const triggerPerms = [
+            { id: everyoneId, deny:  [PermissionFlagsBits.ViewChannel] },
+            ...(verifiedId ? [{ id: verifiedId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect] }] : []),
+            { id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.MoveMembers] },
+        ];
+        const triggerCh = await findOrCreateChannel('🔍 Looking for Squad', ChannelType.GuildVoice, lfgCat.id, triggerPerms);
+
         // ── Save config ───────────────────────────────────────────────────────
         fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-            categoryId:   lfgCat.id,
-            chatChannelId: chatCh.id,
+            categoryId:      lfgCat.id,
+            chatChannelId:   chatCh.id,
+            triggerChannelId: triggerCh.id,
         }, null, 2), 'utf8');
 
         const embed = new EmbedBuilder()

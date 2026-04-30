@@ -182,6 +182,45 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         // ── LFG voice channel lifecycle ────────────────────────────────────────
         const lfgCfg = loadLfgConfig();
         if (lfgCfg?.categoryId) {
+            // User joined the trigger channel — route them to an LFG SQUAD
+            if (newState.channelId && newState.channelId === lfgCfg.triggerChannelId) {
+                const guild  = newState.guild;
+                const member = newState.member;
+
+                // Find existing open LFG SQUAD channel (< 4 members)
+                let target = null;
+                for (const ch of guild.channels.cache.values()) {
+                    if (ch.parentId !== lfgCfg.categoryId || ch.type !== ChannelType.GuildVoice) continue;
+                    if (!LFG_NAME_RE.test(ch.name)) continue;
+                    if (ch.members.size < 4) { target = ch; break; }
+                }
+
+                // No open channel — create the next numbered one
+                if (!target) {
+                    const used = new Set();
+                    for (const ch of guild.channels.cache.values()) {
+                        if (ch.parentId !== lfgCfg.categoryId || ch.type !== ChannelType.GuildVoice) continue;
+                        const m = ch.name.match(/^(?:LFG )?SQUAD (\d+)$/i);
+                        if (m) used.add(parseInt(m[1], 10));
+                    }
+                    let n = 1;
+                    while (used.has(n)) n++;
+
+                    const triggerCh = guild.channels.cache.get(lfgCfg.triggerChannelId);
+                    target = await guild.channels.create({
+                        name:   `LFG SQUAD ${n}`,
+                        type:   ChannelType.GuildVoice,
+                        parent: lfgCfg.categoryId,
+                        permissionOverwrites: triggerCh
+                            ? triggerCh.permissionOverwrites.cache.map(po => ({ id: po.id, allow: po.allow, deny: po.deny }))
+                            : [],
+                    });
+                }
+
+                await member.voice.setChannel(target).catch(() => {});
+                return;
+            }
+
             const isLfgVoice = ch =>
                 ch && ch.parentId === lfgCfg.categoryId && ch.type === ChannelType.GuildVoice &&
                 (LFG_NAME_RE.test(ch.name) || SQUAD_NAME_RE.test(ch.name));
