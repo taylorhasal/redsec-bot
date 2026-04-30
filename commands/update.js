@@ -31,7 +31,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(record.eaId, record.platform);
+            data = await fetchPlayerStats(record.eaId, 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -64,11 +64,9 @@ module.exports = {
             .setColor(0x00CC44)
             .setTitle('Profile Updated')
             .addFields(
-                { name: 'EA ID',        value: `\`${resolvedName}\``,           inline: true },
-                { name: 'Platform',     value: `\`${record.platform.toUpperCase()}\``, inline: true },
-                { name: B,              value: B,                               inline: true },
-                { name: 'K/D Ratio',   value: `\`${fmt(kd)}\``,                inline: true },
-                { name: 'Total Wins',  value: `\`${fmtInt(wins)}\``,           inline: true },
+                { name: 'EA ID',        value: `\`${resolvedName}\``,              inline: false },
+                { name: 'K/D Ratio',   value: `\`${fmt(kd)}\``,                   inline: true },
+                { name: 'Total Wins',  value: `\`${fmtInt(wins)}\``,              inline: true },
                 { name: 'Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
             )
             .setFooter({ text: 'Redsec · Updated' })

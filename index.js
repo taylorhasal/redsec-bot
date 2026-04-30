@@ -113,7 +113,7 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'register_team_modal')         return handleTeamNameModal(interaction, client);
             if (interaction.customId === 'score_modal')                 return handleScoreModal(interaction, client);
             if (interaction.customId.startsWith('audit_adjust_modal:')) return handleAuditAdjustModal(interaction);
-            if (interaction.customId.startsWith('verify_modal:'))       return handleVerifyModal(interaction);
+            if (interaction.customId.startsWith('verify_modal'))        return handleVerifyModal(interaction);
             return;
         }
 

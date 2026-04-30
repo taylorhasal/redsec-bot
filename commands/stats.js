@@ -36,7 +36,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(record.eaId, record.platform);
+            data = await fetchPlayerStats(record.eaId, 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -62,15 +62,15 @@ module.exports = {
         savePlayers(players);
         await applyPlayerProfile(interaction.guild, interaction.member, displayName, redsecIndex);
 
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, record.platform, s, redsecIndex)] });
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex)] });
     },
 };
 
-function buildStatsEmbed(displayName, platform, s, redsecIndex) {
+function buildStatsEmbed(displayName, s, redsecIndex) {
     return new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
-        .setDescription(`Platform: ${platform.toUpperCase()}  ·  Duo & Squad  ·  All Seasons`)
+        .setDescription('Duo & Squad  ·  All Seasons')
         .addFields(
             { name: 'Combat',       value: B, inline: true },
             { name: B,              value: B, inline: true },

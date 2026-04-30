@@ -24,29 +24,19 @@ module.exports = {
                 .setDescription('The Discord member to verify')
                 .setRequired(true))
         .addStringOption(option =>
-            option.setName('platform')
-                .setDescription('Their platform')
-                .setRequired(true)
-                .addChoices(
-                    { name: 'EA',          value: 'ea' },
-                    { name: 'PlayStation', value: 'psn' },
-                    { name: 'Xbox',        value: 'xbox' },
-                ))
-        .addStringOption(option =>
-            option.setName('username')
-                .setDescription('Their in-game username')
+            option.setName('ea_id')
+                .setDescription('Their EA ID')
                 .setRequired(true)),
 
     async execute(interaction) {
-        const target   = interaction.options.getMember('member');
-        const platform = interaction.options.getString('platform');
-        const eaId     = interaction.options.getString('username').trim();
+        const target = interaction.options.getMember('member');
+        const eaId   = interaction.options.getString('ea_id').trim();
 
         await interaction.deferReply({ ephemeral: true });
 
         let data;
         try {
-            data = await fetchPlayerStats(eaId, platform);
+            data = await fetchPlayerStats(eaId, 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -65,7 +55,6 @@ module.exports = {
         const players = loadPlayers();
         players[target.id] = {
             eaId:       resolvedName,
-            platform,
             kd:         parseFloat(kd.toFixed(2)),
             wins,
             redsecIndex,
@@ -79,11 +68,10 @@ module.exports = {
             .setColor(0x00CC44)
             .setTitle('✅  Member Verified')
             .addFields(
-                { name: '👤 Discord',      value: `<@${target.id}>`,               inline: true },
+                { name: '👤 Discord',      value: `<@${target.id}>`,               inline: false },
                 { name: '🪪 EA ID',        value: `\`${resolvedName}\``,           inline: true },
-                { name: '🖥️ Platform',     value: `\`${platform.toUpperCase()}\``, inline: true },
                 { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,               inline: true },
-                { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,          inline: true },
+                { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,           inline: true },
                 { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
             )
             .setFooter({ text: `Verified by ${interaction.user.tag}` })

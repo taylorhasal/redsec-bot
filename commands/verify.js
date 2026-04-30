@@ -1,4 +1,7 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const {
+    SlashCommandBuilder,
+    ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder,
+} = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -6,21 +9,20 @@ module.exports = {
         .setDescription('Link your EA ID and calculate your Redsec Index'),
 
     async execute(interaction) {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('verify_platform:ea')  .setLabel('EA')          .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:psn') .setLabel('PlayStation') .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:xbox').setLabel('Xbox')        .setStyle(ButtonStyle.Secondary),
-        );
+        const modal = new ModalBuilder()
+            .setCustomId('verify_modal')
+            .setTitle('Enter Your EA ID');
 
-        await interaction.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setColor(0xCC0000)
-                    .setTitle('🎮  Select Your Platform')
-                    .setDescription('Choose the platform your account is on, then enter your username.'),
-            ],
-            components: [row],
-            ephemeral: true,
-        });
+        const input = new TextInputBuilder()
+            .setCustomId('ea_id')
+            .setLabel('Your EA ID')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(64)
+            .setPlaceholder('Found top-right on the Search for Player screen in BF6');
+
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await interaction.showModal(modal);
     },
 };

@@ -17,45 +17,33 @@ function loadPlayers() {
 }
 function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null, 2), 'utf8'); }
 
-const PLATFORM_LABELS = {
-    ea:    'EA',
-    steam: 'Steam',
-    psn:   'PlayStation',
-    xbox:  'Xbox',
-    epic:  'Epic',
-};
-
-// Step 1 — user clicked a platform button → show username modal
+// Kept for backward compat — old platform buttons in existing Discord messages still work
 async function handleVerifyPlatformButton(interaction) {
-    const platform = interaction.customId.split(':')[1];
-
     const modal = new ModalBuilder()
-        .setCustomId(`verify_modal:${platform}`)
-        .setTitle('Enter Username');
+        .setCustomId('verify_modal')
+        .setTitle('Enter Your EA ID');
 
-    const usernameInput = new TextInputBuilder()
+    const input = new TextInputBuilder()
         .setCustomId('ea_id')
-        .setLabel('Your In-Game Username')
+        .setLabel('Your EA ID')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
         .setMaxLength(64)
-        .setPlaceholder('Enter your exact in-game username');
+        .setPlaceholder('Found top-right on the Search for Player screen in BF6');
 
-    modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
     await interaction.showModal(modal);
 }
 
-// Step 2 — modal submitted → run verification
 async function handleVerifyModal(interaction) {
-    const platform = interaction.customId.split(':')[1];
-    const eaId     = interaction.fields.getTextInputValue('ea_id').trim();
+    const eaId = interaction.fields.getTextInputValue('ea_id').trim();
 
     await interaction.deferReply({ ephemeral: true });
 
     let data;
     try {
-        data = await fetchPlayerStats(eaId, platform);
+        data = await fetchPlayerStats(eaId, 'ea');
     } catch (err) {
         return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
     }
@@ -74,7 +62,6 @@ async function handleVerifyModal(interaction) {
     const players = loadPlayers();
     players[interaction.user.id] = {
         eaId:       resolvedName,
-        platform,
         kd:         parseFloat(kd.toFixed(2)),
         wins,
         redsecIndex,
@@ -88,12 +75,10 @@ async function handleVerifyModal(interaction) {
         .setColor(0x00CC44)
         .setTitle('✅  Verification Complete')
         .addFields(
-            { name: '🪪 EA ID',        value: `\`${resolvedName}\``,                              inline: true },
-            { name: '🖥️ Platform',     value: `\`${PLATFORM_LABELS[platform] ?? platform}\``,     inline: true },
-            { name: '​',          value: '​',                                            inline: true },
-            { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                                   inline: true },
-            { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,                              inline: true },
-            { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``,                  inline: true },
+            { name: '🪪 EA ID',        value: `\`${resolvedName}\``,             inline: false },
+            { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                  inline: true },
+            { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,             inline: true },
+            { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
         )
         .setFooter({ text: 'Redsec · Verified' })
         .setTimestamp();

@@ -30,7 +30,7 @@ module.exports = {
             .filter(([, r]) => r.eaId?.toLowerCase().includes(typed))
             .slice(0, 25)
             .map(([discordId, r]) => ({
-                name:  `${r.eaId} (${r.platform?.toUpperCase() ?? '?'})`,
+                name:  r.eaId,
                 value: discordId,
             }));
 
@@ -53,7 +53,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(record.eaId, record.platform);
+            data = await fetchPlayerStats(record.eaId, 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -68,7 +68,7 @@ module.exports = {
         const redsecIndex = parseFloat(((0.40 - s.kpm) * 25).toFixed(1));
         const displayName = data.userName ?? record.eaId;
 
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, record.platform, s, redsecIndex)] });
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex)] });
     },
 };
 

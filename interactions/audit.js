@@ -35,12 +35,10 @@ function approvedEmbed(record, userId, adjustedBy = null) {
         .setTitle('✅  Verification Approved')
         .setDescription(`<@${userId}>`)
         .addFields(
-            { name: '🪪 EA ID',        value: `\`${record.eaId}\``,                       inline: true },
-            { name: '🖥️ Platform',     value: `\`${record.platform.toUpperCase()}\``,      inline: true },
-            { name: '​',          value: '​',                                     inline: true },
-            { name: '⚔️ K/D',          value: `\`${record.kd.toFixed(2)}\``,               inline: true },
-            { name: '📈 Win Rate',      value: `\`${(record.winRate * 100).toFixed(1)}%\``, inline: true },
-            { name: '📊 Redsec Index', value: `\`${record.redsecIndex}\``,                  inline: true },
+            { name: '🪪 EA ID',        value: `\`${record.eaId}\``,                        inline: false },
+            { name: '⚔️ K/D',          value: `\`${record.kd.toFixed(2)}\``,                inline: true },
+            { name: '📈 Win Rate',      value: `\`${(record.winRate * 100).toFixed(1)}%\``,  inline: true },
+            { name: '📊 Redsec Index', value: `\`${record.redsecIndex}\``,                   inline: true },
         )
         .setFooter({ text: adjustedBy ? `Index adjusted by ${adjustedBy}` : 'Approved' })
         .setTimestamp();
@@ -50,7 +48,6 @@ function commitToPlayers(userId, record) {
     const players = loadPlayers();
     players[userId] = {
         eaId:        record.eaId,
-        platform:    record.platform,
         kd:          record.kd,
         winRate:     record.winRate,
         redsecIndex: record.redsecIndex,

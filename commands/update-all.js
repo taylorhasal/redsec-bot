@@ -14,9 +14,6 @@ function loadPlayers() {
 }
 function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null, 2), 'utf8'); }
 
-// Migrate stale platform values from the old /stats command choices
-const PLATFORM_MAP = { pc: 'ea', ps5: 'psn', xboxseries: 'xbox' };
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('update-all')
@@ -39,17 +36,12 @@ module.exports = {
 
         await interaction.guild.members.fetch();
 
-        const results = { updated: [], platformFixed: [], notInServer: [], apiError: [], noData: [] };
+        const results = { updated: [], notInServer: [], apiError: [], noData: [] };
 
         for (const [userId, record] of entries) {
-            // Migrate stale platform value if needed
-            const oldPlatform = record.platform;
-            const platform    = PLATFORM_MAP[oldPlatform] ?? oldPlatform ?? 'ea';
-            if (platform !== oldPlatform) results.platformFixed.push(record.eaId);
-
             let data;
             try {
-                data = await fetchPlayerStats(record.eaId, platform);
+                data = await fetchPlayerStats(record.eaId, 'ea');
             } catch (err) {
                 results.apiError.push(`${record.eaId} (${buildErrorMessage(err)})`);
                 continue;
@@ -69,7 +61,6 @@ module.exports = {
             players[userId] = {
                 ...record,
                 eaId:       resolvedName,
-                platform,
                 kd:         parseFloat(kd.toFixed(2)),
                 wins,
                 redsecIndex,
@@ -108,13 +99,6 @@ module.exports = {
                     value: lines.slice(i, i + 1000),
                 });
             }
-        }
-
-        if (results.platformFixed.length) {
-            embed.addFields({
-                name: `Platform Migrated (${results.platformFixed.length})`,
-                value: results.platformFixed.join(', '),
-            });
         }
 
         if (results.apiError.length) {
