@@ -25,8 +25,14 @@ const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdj
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
-const { handleLfgWithdraw, handleLfgJoin } = require('./interactions/lfg');
-const { checkLfgExpiry } = require('./utils/lfgExpiry');
+
+const LFG_CONFIG_FILE = path.join(require('./utils/dataDir'), 'lfg-config.json');
+function loadLfgConfig() {
+    try { return JSON.parse(fs.readFileSync(LFG_CONFIG_FILE, 'utf8')); }
+    catch { return null; }
+}
+const LFG_NAME_RE   = /^LFG SQUAD (\d+)$/i;
+const SQUAD_NAME_RE = /^SQUAD (\d+)$/i;
 
 // NOTE: GuildMembers and MessageContent are Privileged Intents.
 // Enable both in the Discord Developer Portal → Bot → Privileged Gateway Intents.
@@ -55,10 +61,7 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once('ready', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
-    setInterval(() => {
-        checkTournamentWarnings(client).catch(console.error);
-        checkLfgExpiry(client).catch(console.error);
-    }, 60 * 1000);
+    setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -102,8 +105,6 @@ client.on('interactionCreate', async interaction => {
                 return handleAuditAdjust(interaction);
             }
             if (interaction.customId.startsWith('verify_platform:')) return handleVerifyPlatformButton(interaction);
-            if (interaction.customId.startsWith('lfg_withdraw:')) return handleLfgWithdraw(interaction);
-            if (interaction.customId.startsWith('lfg_join:'))     return handleLfgJoin(interaction);
             return;
         }
 
@@ -175,6 +176,32 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             if (ch && ch.members.size === 0) {
                 await ch.delete().catch(() => {});
                 tempVoiceChannels.delete(oldState.channelId);
+            }
+        }
+
+        // ── LFG voice channel lifecycle ────────────────────────────────────────
+        const lfgCfg = loadLfgConfig();
+        if (lfgCfg?.categoryId) {
+            const isLfgVoice = ch =>
+                ch && ch.parentId === lfgCfg.categoryId && ch.type === ChannelType.GuildVoice &&
+                (LFG_NAME_RE.test(ch.name) || SQUAD_NAME_RE.test(ch.name));
+
+            // User joined a channel — rename LFG SQUAD N → SQUAD N when full
+            const joinedCh = newState.channel;
+            if (isLfgVoice(joinedCh) && joinedCh.members.size >= 4 && LFG_NAME_RE.test(joinedCh.name)) {
+                const n = joinedCh.name.match(LFG_NAME_RE)[1];
+                await joinedCh.setName(`SQUAD ${n}`).catch(() => {});
+            }
+
+            // User left a channel — delete if empty, or rename SQUAD N → LFG SQUAD N if no longer full
+            const leftCh = oldState.channel;
+            if (isLfgVoice(leftCh)) {
+                if (leftCh.members.size === 0) {
+                    await leftCh.delete().catch(() => {});
+                } else if (SQUAD_NAME_RE.test(leftCh.name) && leftCh.members.size < 4) {
+                    const n = leftCh.name.match(SQUAD_NAME_RE)[1];
+                    await leftCh.setName(`LFG SQUAD ${n}`).catch(() => {});
+                }
             }
         }
     } catch (err) {

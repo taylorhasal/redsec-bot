@@ -57,13 +57,6 @@ module.exports = {
         ];
         const lfgCat = await findOrCreateCategory('🔍 LOOKING FOR GROUP', catPerms);
 
-        // ── #📢-lfg-feed — read-only ──────────────────────────────────────────
-        const feedCh = await findOrCreateChannel('📢-lfg-feed', ChannelType.GuildText, lfgCat.id, [
-            { id: everyoneId, deny:  [PermissionFlagsBits.ViewChannel] },
-            ...(verifiedId ? [{ id: verifiedId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory], deny: [PermissionFlagsBits.SendMessages] }] : []),
-            { id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-        ]);
-
         // ── #💬-lfg-chat — verified can send ─────────────────────────────────
         const chatCh = await findOrCreateChannel('💬-lfg-chat', ChannelType.GuildText, lfgCat.id, [
             { id: everyoneId, deny:  [PermissionFlagsBits.ViewChannel] },
@@ -73,7 +66,7 @@ module.exports = {
 
         // ── Save config ───────────────────────────────────────────────────────
         fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-            feedChannelId: feedCh.id,
+            categoryId:   lfgCat.id,
             chatChannelId: chatCh.id,
         }, null, 2), 'utf8');
 

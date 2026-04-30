@@ -1,63 +1,51 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
 const DATA_DIR = require('../utils/dataDir');
-const { getSkillRoleName, formatIndex } = require('../utils/profile');
-const { loadListings, saveListings } = require('../utils/lfgExpiry');
 
-const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
-const CONFIG_FILE  = path.join(DATA_DIR, 'lfg-config.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'lfg-config.json');
 
-function loadPlayers() {
-    try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
-    catch { return {}; }
-}
 function loadConfig() {
     try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
     catch { return null; }
 }
 
-const TWO_HOURS = 2 * 60 * 60 * 1000;
+const LFG_NAME_RE = /^LFG SQUAD \d+$/i;
+const ANY_SQUAD_RE = /^(?:LFG )?SQUAD (\d+)$/i;
+
+function getUsedSquadNumbers(guild, categoryId) {
+    const used = new Set();
+    for (const ch of guild.channels.cache.values()) {
+        if (ch.parentId !== categoryId || ch.type !== ChannelType.GuildVoice) continue;
+        const m = ch.name.match(ANY_SQUAD_RE);
+        if (m) used.add(parseInt(m[1], 10));
+    }
+    return used;
+}
+
+function lowestUnusedNumber(used) {
+    let n = 1;
+    while (used.has(n)) n++;
+    return n;
+}
+
+function findAvailableLfgChannel(guild, categoryId) {
+    for (const ch of guild.channels.cache.values()) {
+        if (ch.parentId !== categoryId || ch.type !== ChannelType.GuildVoice) continue;
+        if (!LFG_NAME_RE.test(ch.name)) continue;
+        if (ch.members.size < 4) return ch;
+    }
+    return null;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('lfg')
-        .setDescription('Post a Looking for Group listing in #lfg-feed')
-        .addStringOption(o =>
-            o.setName('mode')
-                .setDescription('Are you looking for a duo or a full squad?')
-                .setRequired(true)
-                .addChoices(
-                    { name: 'Duo',   value: 'Duo' },
-                    { name: 'Squad', value: 'Squad' },
-                )),
+        .setDescription('Find a squad — joins or creates an LFG voice channel'),
 
-    async execute(interaction, client) {
-        const mode   = interaction.options.getString('mode');
-        const userId = interaction.user.id;
-
-        // Must be verified
-        const players = loadPlayers();
-        const record  = players[userId];
-        if (!record) {
-            return interaction.reply({
-                content: 'You must be verified to use LFG. Run `/verify` first.',
-                ephemeral: true,
-            });
-        }
-
-        // Check for existing active listing
-        const listings = loadListings();
-        if (listings[userId]) {
-            return interaction.reply({
-                content: 'You already have an active listing in <#' + listings[userId].feedChannelId + '>. Use the **Withdraw** button on your post to remove it first.',
-                ephemeral: true,
-            });
-        }
-
-        // Load channel config
+    async execute(interaction) {
         const config = loadConfig();
-        if (!config?.feedChannelId) {
+        if (!config?.categoryId) {
             return interaction.reply({
                 content: 'LFG channels have not been set up yet. Ask an admin to run `/setup-lfg`.',
                 ephemeral: true,
@@ -65,54 +53,40 @@ module.exports = {
         }
 
         await interaction.deferReply({ ephemeral: true });
+        await interaction.guild.channels.fetch();
 
-        const feedCh = await client.channels.fetch(config.feedChannelId).catch(() => null);
-        if (!feedCh) {
-            return interaction.editReply({ content: 'LFG feed channel not found. Ask an admin to run `/setup-lfg` again.' });
+        const member = interaction.member;
+
+        // Already in an LFG/SQUAD channel?
+        const currentVc = member.voice?.channel;
+        if (currentVc && currentVc.parentId === config.categoryId && ANY_SQUAD_RE.test(currentVc.name)) {
+            return interaction.editReply({ content: `You're already in ${currentVc}. Rally your squad!` });
         }
 
-        const tier      = getSkillRoleName(record.redsecIndex);
-        const idxStr    = formatIndex(record.redsecIndex);
-        const expiresAt = Date.now() + TWO_HOURS;
-        const expiresTs = Math.floor(expiresAt / 1000);
+        // Find existing open LFG SQUAD channel or create one
+        let targetChannel = findAvailableLfgChannel(interaction.guild, config.categoryId);
 
-        const embed = new EmbedBuilder()
-            .setColor(0xCC0000)
-            .setTitle(`🔍  ${record.eaId} is Looking for Group`)
-            .addFields(
-                { name: '🎖️ Tier',      value: tier,                       inline: true },
-                { name: '📊 Index',     value: `\`${idxStr}\``,            inline: true },
-                { name: '🖥️ Platform',  value: record.platform.toUpperCase(), inline: true },
-                { name: '🎮 Mode',      value: mode,                       inline: true },
-                { name: '⏱️ Expires',   value: `<t:${expiresTs}:R>`,       inline: true },
-            )
-            .setFooter({ text: 'Click Request to Join to send them a ping in #lfg-chat' })
-            .setTimestamp();
+        if (!targetChannel) {
+            const used  = getUsedSquadNumbers(interaction.guild, config.categoryId);
+            const n     = lowestUnusedNumber(used);
+            const catCh = interaction.guild.channels.cache.get(config.categoryId);
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`lfg_join:${userId}`)
-                .setLabel('🙋 Request to Join')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId(`lfg_withdraw:${userId}`)
-                .setLabel('❌ Withdraw')
-                .setStyle(ButtonStyle.Secondary),
-        );
+            targetChannel = await interaction.guild.channels.create({
+                name:   `LFG SQUAD ${n}`,
+                type:   ChannelType.GuildVoice,
+                parent: config.categoryId,
+                permissionOverwrites: catCh
+                    ? catCh.permissionOverwrites.cache.map(po => ({ id: po.id, allow: po.allow, deny: po.deny }))
+                    : [],
+            });
+        }
 
-        const msg = await feedCh.send({ embeds: [embed], components: [row] });
-
-        listings[userId] = {
-            messageId:     msg.id,
-            feedChannelId: config.feedChannelId,
-            chatChannelId: config.chatChannelId,
-            expiresAt,
-            mode,
-        };
-        saveListings(listings);
-
-        await interaction.editReply({
-            content: `✅  Your LFG post is live in <#${config.feedChannelId}>. It expires <t:${expiresTs}:R>.`,
-        });
+        // Move if already in voice, otherwise send a link
+        if (member.voice?.channelId) {
+            await member.voice.setChannel(targetChannel).catch(() => {});
+            return interaction.editReply({ content: `Moved you to ${targetChannel}!` });
+        } else {
+            return interaction.editReply({ content: `Join your squad here: ${targetChannel}` });
+        }
     },
 };
