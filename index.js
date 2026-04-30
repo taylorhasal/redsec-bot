@@ -25,6 +25,8 @@ const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdj
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
+const { handleLfgWithdraw, handleLfgJoin } = require('./interactions/lfg');
+const { checkLfgExpiry } = require('./utils/lfgExpiry');
 
 // NOTE: GuildMembers and MessageContent are Privileged Intents.
 // Enable both in the Discord Developer Portal → Bot → Privileged Gateway Intents.
@@ -53,7 +55,10 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once('ready', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
-    setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
+    setInterval(() => {
+        checkTournamentWarnings(client).catch(console.error);
+        checkLfgExpiry(client).catch(console.error);
+    }, 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -97,6 +102,8 @@ client.on('interactionCreate', async interaction => {
                 return handleAuditAdjust(interaction);
             }
             if (interaction.customId.startsWith('verify_platform:')) return handleVerifyPlatformButton(interaction);
+            if (interaction.customId.startsWith('lfg_withdraw:')) return handleLfgWithdraw(interaction);
+            if (interaction.customId.startsWith('lfg_join:'))     return handleLfgJoin(interaction);
             return;
         }
 
