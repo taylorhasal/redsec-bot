@@ -25,6 +25,7 @@ const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdj
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
+const { runLiveTrackerTick } = require('./utils/liveTracker');
 
 const LFG_CONFIG_FILE = path.join(require('./utils/dataDir'), 'lfg-config.json');
 function loadLfgConfig() {
@@ -62,6 +63,7 @@ client.once('ready', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
     setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
+    setInterval(() => runLiveTrackerTick(client).catch(console.error), 5 * 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
