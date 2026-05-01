@@ -5,7 +5,7 @@ const DATA_DIR = require('../utils/dataDir');
 const { fetchPlayerStats, buildErrorMessage } = require('../utils/api');
 const {
     loadTrackers, saveTrackers, loadConfig,
-    extractRedsecSquadSnapshot, MAX_TRACKERS,
+    extractRedsecSquadSnapshot, addTrackingRole, MAX_TRACKERS,
 } = require('../utils/liveTracker');
 
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
@@ -78,6 +78,7 @@ module.exports = {
 
         trackers[userId] = {
             eaId,
+            guildId:        interaction.guild.id,
             snapshot,
             startedAt:      new Date().toISOString(),
             lastDetectedAt: null,
@@ -86,8 +87,10 @@ module.exports = {
         };
         saveTrackers(trackers);
 
+        await addTrackingRole(interaction.guild, interaction.member);
+
         await interaction.editReply({
-            content: `✅  Tracking started for **${eaId}**. Your Redsec Squad games will appear in <#${config.channelId}> within 5 min of finishing.\n*Auto-stops after 20 min of inactivity. Use \`/stop-tracking\` to stop manually.*`,
+            content: `✅  Tracking started for **${eaId}**. Your Redsec Squad games will appear in <#${config.channelId}> within 5 min of finishing.\n*Auto-stops after 45 min of inactivity. Use \`/stop-tracking\` to stop manually.*`,
         });
     },
 };

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { loadTrackers, saveTrackers } = require('../utils/liveTracker');
+const { loadTrackers, saveTrackers, removeTrackingRole } = require('../utils/liveTracker');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -19,6 +19,8 @@ module.exports = {
 
         delete trackers[userId];
         saveTrackers(trackers);
+
+        await removeTrackingRole(interaction.client, interaction.guild.id, userId);
 
         await interaction.reply({
             content: '🛑  Live tracking stopped.',
