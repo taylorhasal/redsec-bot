@@ -53,13 +53,23 @@ module.exports = {
         ];
         const trackerCat = await findOrCreateCategory('📊 LIVE TRACKING', catPerms);
 
-        const trackerCh = await findOrCreateChannel('📊-live-tracker', ChannelType.GuildText, trackerCat.id, [
+        const readOnlyForVerified = [
             { id: everyoneId, deny:  [PermissionFlagsBits.ViewChannel] },
             ...(verifiedId ? [{ id: verifiedId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory], deny: [PermissionFlagsBits.SendMessages] }] : []),
             { id: botId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-        ]);
+        ];
+
+        const trackerCh = await findOrCreateChannel('📊-live-tracker', ChannelType.GuildText, trackerCat.id, readOnlyForVerified);
+        const howToCh   = await findOrCreateChannel('📋-how-to-use',  ChannelType.GuildText, trackerCat.id, readOnlyForVerified);
 
         fs.writeFileSync(CONFIG_FILE, JSON.stringify({ channelId: trackerCh.id }, null, 2), 'utf8');
+
+        // Post or refresh the explainer embed in #📋-how-to-use
+        const howToEmbed = buildHowToEmbed(trackerCh.id);
+        const recent     = await howToCh.messages.fetch({ limit: 10 });
+        const botMsg     = recent.find(m => m.author.id === botId && m.embeds.length > 0);
+        if (botMsg) await botMsg.edit({ embeds: [howToEmbed] });
+        else        await howToCh.send({ embeds: [howToEmbed] });
 
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
@@ -71,3 +81,40 @@ module.exports = {
         await interaction.editReply({ embeds: [embed] });
     },
 };
+
+function buildHowToEmbed(trackerChannelId) {
+    return new EmbedBuilder()
+        .setColor(0xCC0000)
+        .setTitle('📊  Live Game Tracker — How It Works')
+        .setDescription(
+            `The bot polls your BF6 stats every 5 minutes and posts each detected ` +
+            `Redsec Squad game in <#${trackerChannelId}> — kills, deaths, K/D, ` +
+            `placement, score, the works.`
+        )
+        .addFields(
+            {
+                name:  '▶️  How to Start',
+                value: 'Run `/start-tracking` (you must be verified). You\'ll get the 🟢 Live Tracking role while active.',
+            },
+            {
+                name:  '⏹️  How to Stop',
+                value: 'Run `/stop-tracking` — the role is removed and polling ends.',
+            },
+            {
+                name:  '⏸️  Auto-Pause',
+                value: 'Tracking auto-stops after **45 minutes** with no detected Redsec Squad games. You\'ll get a DM. Run `/start-tracking` again to resume.',
+            },
+            {
+                name:  '📊  What Gets Tracked',
+                value: 'Per game: Result · Placement · Length · Kills · Deaths · K/D · KPM · Headshots % · Assists · Score · Revives · Spots',
+            },
+            {
+                name:  '⚠️  Limitations',
+                value:
+                    '• Only **Redsec Squad** is detected (not Duo/Solo).\n' +
+                    '• Placement is best-effort. If you queue a different mode immediately after a Redsec game, the placement number may be wrong.\n' +
+                    '• Kills, deaths, and other counters are always accurate (computed from stat deltas).',
+            },
+        )
+        .setFooter({ text: 'Redsec — Live Tracker' });
+}
