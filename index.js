@@ -14,7 +14,7 @@ const path = require('path');
 const {
     handleRegisterButton, handleTeamNameModal,
     handleTeamPlayerSelect, handleRegisterSolo,
-    handleRosterAddButton, handleRosterAddSelect,
+    handleRosterAddButton, handleRosterAddSelect, handleRosterAddUserSelect,
     handleRosterRemoveButton, handleRosterRemoveSelect,
     handleRosterUnregisterButton,
     handleRosterDisbandConfirm,
@@ -124,6 +124,11 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'team_player_select')              return handleTeamPlayerSelect(interaction, client);
             if (interaction.customId.startsWith('roster_add_select:'))    return handleRosterAddSelect(interaction, client);
             if (interaction.customId.startsWith('roster_remove_select:')) return handleRosterRemoveSelect(interaction, client);
+            return;
+        }
+
+        if (interaction.isUserSelectMenu()) {
+            if (interaction.customId.startsWith('roster_add_user_select:')) return handleRosterAddUserSelect(interaction, client);
             return;
         }
     } catch (err) {

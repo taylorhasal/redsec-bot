@@ -328,21 +328,15 @@ async function handleRosterAddButton(interaction) {
         return interaction.reply({ content: 'Your team is already full (4/4).', ephemeral: true });
     }
 
-    const options = await buildVerifiedOptions(interaction.guild, tournament, team.players);
-    if (options.length === 0) {
-        return interaction.reply({ content: 'No verified players are available to add.', ephemeral: true });
-    }
-
     const remainingSlots = 4 - team.players.length;
-    const select = new StringSelectMenuBuilder()
-        .setCustomId(`roster_add_select:${teamId}`)
-        .setPlaceholder('Select a verified player to add')
+    const select = new UserSelectMenuBuilder()
+        .setCustomId(`roster_add_user_select:${teamId}`)
+        .setPlaceholder('Search for a verified player to add')
         .setMinValues(1)
-        .setMaxValues(Math.min(remainingSlots, options.length))
-        .addOptions(options);
+        .setMaxValues(remainingSlots);
 
     await interaction.reply({
-        content: `**${team.name}** — ${team.players.length}/4 players. Select who to add:`,
+        content: `**${team.name}** — ${team.players.length}/4 players. Select who to add (must have run \`/verify\`):`,
         components: [new ActionRowBuilder().addComponents(select)],
         ephemeral: true,
     });
@@ -393,6 +387,58 @@ async function handleRosterAddSelect(interaction, client) {
     if (added.length > 0)       lines.push(`✅ Added ${added.map(id => `<@${id}>`).join(', ')} to **${team.name}**.`);
     if (onOtherTeam.length > 0) lines.push(`⛔ Already on another team: ${onOtherTeam.join(', ')}`);
     if (lines.length === 0)     lines.push('⚠️ No new players could be added.');
+
+    await interaction.editReply({ content: lines.join('\n'), components: [] });
+}
+
+// ── Add player later: UserSelectMenu — roster_add_user_select:{teamId} ──────
+async function handleRosterAddUserSelect(interaction, client) {
+    const teamId = interaction.customId.split(':')[1];
+    await interaction.deferUpdate();
+
+    const tournament = loadByChannel(interaction.channelId);
+    if (!tournament) {
+        return interaction.editReply({ content: 'Tournament not found.', components: [] });
+    }
+
+    const team = tournament.teams[teamId];
+    if (!team) {
+        return interaction.editReply({ content: 'Team not found.', components: [] });
+    }
+
+    const players = loadPlayers();
+    const added      = [];
+    const notVerified = [];
+    const onOtherTeam = [];
+
+    for (const userId of interaction.values) {
+        if (team.players.includes(userId)) continue;
+        if (team.players.length >= 4) break;
+        if (!players[userId]) {
+            notVerified.push(`<@${userId}>`);
+            continue;
+        }
+        const existingTeamId = getRegisteredTeam(tournament, userId);
+        if (existingTeamId && existingTeamId !== teamId) {
+            onOtherTeam.push(`<@${userId}> (on **${tournament.teams[existingTeamId].name}**)`);
+            continue;
+        }
+        team.players.push(userId);
+        team.teamIndex += players[userId].redsecIndex ?? 0;
+        added.push(userId);
+    }
+
+    team.teamIndex = parseFloat(team.teamIndex.toFixed(1));
+    save(tournament);
+
+    await updateLeaderboard(client, tournament);
+    await postOrUpdateRoster(client, tournament, teamId);
+
+    const lines = [];
+    if (added.length > 0)        lines.push(`✅ Added ${added.map(id => `<@${id}>`).join(', ')} to **${team.name}**.`);
+    if (notVerified.length > 0)  lines.push(`⛔ Not verified (must run \`/verify\`): ${notVerified.join(', ')}`);
+    if (onOtherTeam.length > 0)  lines.push(`⛔ Already on another team: ${onOtherTeam.join(', ')}`);
+    if (lines.length === 0)      lines.push('⚠️ No new players could be added.');
 
     await interaction.editReply({ content: lines.join('\n'), components: [] });
 }
@@ -557,6 +603,7 @@ module.exports = {
     handleRegisterSolo,
     handleRosterAddButton,
     handleRosterAddSelect,
+    handleRosterAddUserSelect,
     handleRosterRemoveButton,
     handleRosterRemoveSelect,
     handleRosterUnregisterButton,
