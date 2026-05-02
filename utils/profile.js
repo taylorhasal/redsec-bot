@@ -17,10 +17,10 @@ async function applyPlayerProfile(guild, member, eaId, redsecIndex) {
     const indexStr     = formatIndex(redsecIndex);
     const newSkillName = getSkillRoleName(redsecIndex);
 
-    // Nickname: "[+1.2] taygrande"
-    const prefix    = `[${indexStr}] `;
-    const nickEaId  = eaId.slice(0, 32 - prefix.length);
-    await member.setNickname(`${prefix}${nickEaId}`).catch(() => {});
+    // Nickname: "[+1.2] DiscordDisplayName"
+    const prefix      = `[${indexStr}] `;
+    const discordName = (member.user.globalName ?? member.user.username).slice(0, 32 - prefix.length);
+    await member.setNickname(`${prefix}${discordName}`).catch(() => {});
 
     // Assign @Verified role if it exists in this guild (created by /setup)
     const verifiedRole = guild.roles.cache.find(r => r.name === 'Verified');
