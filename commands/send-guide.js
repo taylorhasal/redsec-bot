@@ -17,7 +17,7 @@ module.exports = {
             .setColor(0x2e8b57)
             .setTitle('🛡️  PLAYER VERIFICATION: STEP-BY-STEP')
             .setDescription(
-                'To compete in the Redsec Bot Races, we must verify your combat history. ' +
+                'To join, we must verify your combat history. ' +
                 'This ensures fair handicaps and keeps the **Net Leaderboard** competitive for everyone.'
             )
             .addFields(
@@ -33,17 +33,21 @@ module.exports = {
                     inline: false,
                 },
                 {
-                    name:  '🤖  Step 2: The Command',
+                    name:  '🤖  Step 2: Run /verify',
                     value:
-                        'Type `/verify [Your_EA_ID]` in this channel. Your EA can be found in the top right corner of the "Search for Players" screen in BF6.\n\n' +
+                        'Type `/verify` in this channel. A popup will appear — enter your **EA ID**.\n\n' +
+                        '> ⚠️ **Only EA ID is accepted** — not Steam, not PS5, not Xbox.\n' +
+                        '> Your EA ID is found in the **top-right corner** of the **"Search for Player"** screen in the BF6 menu.\n\n' +
                         'The bot will pull your Redsec data and calculate your **Redsec Index**.',
                     inline: false,
                 },
                 {
-                    name:  '🕵️  Step 3: Verification',
+                    name:  '🕹️  Step 3: Set Your In-Game Name',
                     value:
-                        'If a matching EA profile is found, verification is complete. ' +
-                        'Your **Skill Tier** and **Index** will automatically appear in your server nickname.',
+                        'Once verified, **update your Discord display name** (or server nickname) to your **in-game gamertag** — ' +
+                        'the name your teammates and opponents see in-game. This can be your Steam, Xbox, or PS5 username.\n\n' +
+                        'The bot will automatically prefix it with your Redsec Index — for example: `[+1.2] YourGamertag`.\n\n' +
+                        '> 💡 Already verified? Run `/refresh` to re-sync your stats and apply the new format.',
                     inline: false,
                 },
                 {
