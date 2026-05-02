@@ -47,7 +47,7 @@ async function buildVerifiedOptions(guild, tournament, excludeIds = []) {
         if (excludeIds.includes(userId)) continue;
         if (registeredIds.has(userId)) continue;
         const member = guild.members.cache.get(userId);
-        if (!member || !member.roles.cache.has(tournament.verifiedRoleId)) continue;
+        if (!member) continue;
         const idxStr = data.redsecIndex >= 0
             ? `+${data.redsecIndex.toFixed(1)}`
             : `${data.redsecIndex.toFixed(1)}`;
@@ -165,11 +165,10 @@ async function finalizeTeam(interaction, client, additionalIds) {
         if (userId === captainId) continue;
         if (valid.length >= 4) break;
         const member   = await guild.members.fetch(userId).catch(() => null);
-        const hasRole  = member?.roles.cache.has(tournament.verifiedRoleId);
         const hasData  = !!players[userId];
         const onTeamId = getRegisteredTeam(tournament, userId);
-        if (!hasRole || !hasData) {
-            invalid.push(`<@${userId}> — ${!hasRole ? 'missing @Verified role' : 'has not run /verify'}`);
+        if (!member || !hasData) {
+            invalid.push(`<@${userId}> — ${!hasData ? 'has not run /verify' : 'not in server'}`);
         } else if (onTeamId) {
             invalid.push(`<@${userId}> — already registered on **${tournament.teams[onTeamId].name}**`);
         } else {
@@ -373,8 +372,7 @@ async function handleRosterAddSelect(interaction, client) {
         if (team.players.includes(userId)) continue;
         if (team.players.length >= 4) break;
         const member = await guild.members.fetch(userId).catch(() => null);
-        if (!member?.roles.cache.has(tournament.verifiedRoleId)) continue;
-        if (!players[userId]) continue;
+        if (!member || !players[userId]) continue;
         const existingTeamId = getRegisteredTeam(tournament, userId);
         if (existingTeamId && existingTeamId !== teamId) {
             onOtherTeam.push(`<@${userId}> (on **${tournament.teams[existingTeamId].name}**)`);
