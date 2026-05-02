@@ -70,7 +70,7 @@ module.exports = {
             // Apply nickname + roles if member is still in the server
             const member = interaction.guild.members.cache.get(userId);
             if (member) {
-                await applyPlayerProfile(interaction.guild, member, resolvedName, redsecIndex);
+                await applyPlayerProfile(interaction.guild, member, resolvedName, redsecIndex, record.displayName ?? null);
                 results.updated.push(`${resolvedName} → \`${formatIndex(redsecIndex)}\``);
             } else {
                 results.notInServer.push(resolvedName);
