@@ -1,7 +1,7 @@
 const {
     ModalBuilder, TextInputBuilder, TextInputStyle,
     StringSelectMenuBuilder, UserSelectMenuBuilder, ActionRowBuilder, EmbedBuilder,
-    ButtonBuilder, ButtonStyle,
+    ButtonBuilder, ButtonStyle, PermissionFlagsBits,
 } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
@@ -321,7 +321,8 @@ async function handleRosterAddButton(interaction) {
     const team = tournament.teams[teamId];
     if (!team) return interaction.reply({ content: 'Team not found.', ephemeral: true });
 
-    if (interaction.user.id !== team.captainId) {
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    if (interaction.user.id !== team.captainId && !isAdmin) {
         return interaction.reply({ content: 'Only the team captain can add players.', ephemeral: true });
     }
     if (team.players.length >= 4) {
@@ -407,7 +408,8 @@ async function handleRosterRemoveButton(interaction) {
     const team = tournament.teams[teamId];
     if (!team) return interaction.reply({ content: 'Team not found.', ephemeral: true });
 
-    if (interaction.user.id !== team.captainId) {
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    if (interaction.user.id !== team.captainId && !isAdmin) {
         return interaction.reply({ content: 'Only the team captain can remove players.', ephemeral: true });
     }
 
@@ -487,7 +489,8 @@ async function handleRosterUnregisterButton(interaction) {
     const team = tournament.teams[teamId];
     if (!team) return interaction.reply({ content: 'Team not found.', ephemeral: true });
 
-    if (interaction.user.id !== team.captainId) {
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    if (interaction.user.id !== team.captainId && !isAdmin) {
         return interaction.reply({ content: 'Only the team captain can disband the team.', ephemeral: true });
     }
 
@@ -518,7 +521,8 @@ async function handleRosterDisbandConfirm(interaction) {
     const team = tournament.teams[teamId];
     if (!team) return interaction.update({ content: 'Team not found.', components: [] });
 
-    if (interaction.user.id !== team.captainId) {
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    if (interaction.user.id !== team.captainId && !isAdmin) {
         return interaction.update({ content: 'Only the team captain can disband the team.', components: [] });
     }
 
