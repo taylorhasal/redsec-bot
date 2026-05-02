@@ -16,7 +16,11 @@ function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null,
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('refresh')
-        .setDescription('Re-sync your Redsec stats and update your server nickname'),
+        .setDescription('Update your in-game display name and re-sync your Redsec stats')
+        .addStringOption(o =>
+            o.setName('gamertag')
+                .setDescription('Your in-game name — Steam, Xbox, or PS5 username')
+                .setRequired(true)),
 
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
@@ -26,6 +30,8 @@ module.exports = {
         if (!stored) {
             return interaction.editReply({ content: "You haven't verified yet. Run `/verify` first." });
         }
+
+        const gamertag = interaction.options.getString('gamertag').trim();
 
         let data;
         try {
@@ -46,30 +52,29 @@ module.exports = {
         }
 
         const { kpm, kd, wins } = redsec;
-        const redsecIndex = parseFloat(((0.40 - kpm) * 25).toFixed(1));
-        const resolvedName = data.userName ?? stored.eaId;
+        const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
+        const resolvedEaId = data.userName ?? stored.eaId;
 
         players[interaction.user.id] = {
             ...stored,
-            eaId:        resolvedName,
+            eaId:        resolvedEaId,
+            displayName: gamertag,
             kd:          parseFloat(kd.toFixed(2)),
             wins,
             redsecIndex,
-            verifiedAt:  stored.verifiedAt,
         };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex);
-
-        const discordName = interaction.member.user.globalName ?? interaction.member.user.username;
+        await applyPlayerProfile(interaction.guild, interaction.member, resolvedEaId, redsecIndex, gamertag);
 
         await interaction.editReply({
             embeds: [new EmbedBuilder()
                 .setColor(0x00CC44)
                 .setTitle('🔄  Profile Refreshed')
                 .addFields(
-                    { name: '🪪 EA ID',          value: `\`${resolvedName}\``,          inline: false },
-                    { name: '🏷️ Nickname',        value: `\`[${formatIndex(redsecIndex)}] ${discordName}\``, inline: false },
+                    { name: '🎮 In-Game Name',   value: `\`${gamertag}\``,              inline: false },
+                    { name: '🪪 EA ID',           value: `\`${resolvedEaId}\``,          inline: false },
+                    { name: '🏷️ Nickname',        value: `\`[${formatIndex(redsecIndex)}] ${gamertag}\``, inline: false },
                     { name: '⚔️ K/D Ratio',       value: `\`${fmt(kd)}\``,               inline: true },
                     { name: '🏆 Total Wins',      value: `\`${fmtInt(wins)}\``,           inline: true },
                     { name: '📊 Redsec Index',    value: `\`${formatIndex(redsecIndex)}\``, inline: true },

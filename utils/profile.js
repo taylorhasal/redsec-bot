@@ -13,14 +13,14 @@ function formatIndex(index) {
     return (index >= 0 ? '+' : '') + index.toFixed(1);
 }
 
-async function applyPlayerProfile(guild, member, eaId, redsecIndex) {
+async function applyPlayerProfile(guild, member, eaId, redsecIndex, displayName = null) {
     const indexStr     = formatIndex(redsecIndex);
     const newSkillName = getSkillRoleName(redsecIndex);
 
-    // Nickname: "[+1.2] DiscordDisplayName"
-    const prefix      = `[${indexStr}] `;
-    const discordName = (member.user.globalName ?? member.user.username).slice(0, 32 - prefix.length);
-    await member.setNickname(`${prefix}${discordName}`).catch(() => {});
+    // Nickname: "[+1.2] DisplayName"  (explicit gamertag, or falls back to Discord name)
+    const prefix    = `[${indexStr}] `;
+    const nameToUse = (displayName ?? member.user.globalName ?? member.user.username).slice(0, 32 - prefix.length);
+    await member.setNickname(`${prefix}${nameToUse}`).catch(() => {});
 
     // Assign @Verified role if it exists in this guild (created by /setup)
     const verifiedRole = guild.roles.cache.find(r => r.name === 'Verified');
