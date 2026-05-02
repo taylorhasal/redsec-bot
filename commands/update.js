@@ -58,7 +58,7 @@ module.exports = {
         };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex);
+        await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, record.displayName ?? null);
 
         const embed = new EmbedBuilder()
             .setColor(0x00CC44)
