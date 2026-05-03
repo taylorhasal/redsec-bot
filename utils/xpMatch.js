@@ -171,7 +171,7 @@ async function checkXpQueues(client) {
 
 module.exports = {
     loadMatches, saveMatches, loadRatings, saveRatings,
-    loadXpConfig, saveXpConfig, getOrCreateRating, initRating,
+    loadXpConfig, saveXpConfig, loadPlayers, getOrCreateRating, initRating,
     expectedWinRate, calcXpDelta, fmtIndex, playerName,
     buildXpLeaderboardEmbed, buildQueueEmbed,
     updateXpLeaderboard, resolveMatch, checkXpQueues, newMatchId,
