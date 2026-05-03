@@ -27,9 +27,14 @@ const { handleVerifyPlatformButton, handleVerifyModal } = require('./interaction
 const { checkTournamentWarnings } = require('./utils/warnings');
 const { runLiveTrackerTick } = require('./utils/liveTracker');
 
-const LFG_CONFIG_FILE = path.join(require('./utils/dataDir'), 'lfg-config.json');
+const LFG_CONFIG_FILE   = path.join(require('./utils/dataDir'), 'lfg-config.json');
+const VOICE_CONFIG_FILE = path.join(require('./utils/dataDir'), 'voice-config.json');
 function loadLfgConfig() {
     try { return JSON.parse(fs.readFileSync(LFG_CONFIG_FILE, 'utf8')); }
+    catch { return null; }
+}
+function loadVoiceConfig() {
+    try { return JSON.parse(fs.readFileSync(VOICE_CONFIG_FILE, 'utf8')); }
     catch { return null; }
 }
 const LFG_NAME_RE   = /^LFG SQUAD (\d+)$/i;
@@ -173,6 +178,23 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                 })),
             });
 
+            tempVoiceChannels.add(temp.id);
+            await member.voice.setChannel(temp).catch(() => {});
+        }
+
+        // User joined "Create New Voice Channel" trigger — spawn Name's Squad
+        const voiceCfg = loadVoiceConfig();
+        if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
+            const member  = newState.member;
+            const rawName = member.displayName.replace(/^\[.*?\]\s*/, '');
+            const temp    = await newState.guild.channels.create({
+                name:   `${rawName}'s Squad`,
+                type:   ChannelType.GuildVoice,
+                parent: voiceCfg.categoryId,
+                permissionOverwrites: newState.channel.permissionOverwrites.cache.map(po => ({
+                    id: po.id, allow: po.allow, deny: po.deny,
+                })),
+            });
             tempVoiceChannels.add(temp.id);
             await member.voice.setChannel(temp).catch(() => {});
         }
