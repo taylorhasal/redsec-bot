@@ -89,7 +89,7 @@ function fmtInt(value) {
 function buildErrorMessage(err) {
     const msg = err.message ?? '';
     if (msg === 'PROFILE_PRIVATE')  return 'This profile is private. Ask the player to make their stats public in BF6 settings.';
-    if (msg === 'PLAYER_NOT_FOUND') return 'Player not found. Double-check the EA ID and platform.';
+    if (msg === 'PLAYER_NOT_FOUND') return 'Player not found. Double-check the EA ID — or the stats API may be temporarily down. Try again in a few minutes.';
     if (msg === 'RATE_LIMITED')     return 'The stats API is rate-limited. Please wait a moment and try again.';
     return `The stats API returned an unexpected error (${msg}). Check the bot console for details.`;
 }
