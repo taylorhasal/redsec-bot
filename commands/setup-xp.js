@@ -8,7 +8,7 @@ const {
 } = require('../utils/xpMatch');
 
 const HOW_TO_PLAY = `
-**Welcome to XP Ranked** — a 2v2 kill-race mode where you earn and lose XP based on your performance and skill gap against your opponents.
+**Welcome to XP Ranked** — a 2v2 kill-race mode where you earn and lose XP based on your performance and the skill gap between teams.
 
 **How It Works**
 Your XP starts at **1,000**. After every match, both teams gain or lose XP based on the outcome and the skill gap between the teams (Redsec Index).
@@ -20,22 +20,24 @@ Your XP starts at **1,000**. After every match, both teams gain or lose XP based
 **How to Play**
 
 **Step 1 — Queue Up**
-Click **Start XP Match** in <#QUEUE_PLACEHOLDER>. A match queue embed will appear. You and up to 3 other players join Team 1 or Team 2.
+Click **Start XP Match** in <#QUEUE_PLACEHOLDER>. A match queue embed will appear. Join Team 1 or Team 2 — you need 2 players per side to start.
 
-**Step 2 — The Lobby**
-Once all 4 slots are filled, two voice channels are created for your teams. The **host team** (the more skilled team by combined Redsec Index) creates the in-game custom lobby. The other team joins.
+**Step 2 — Set Up the Lobby**
+Once all 4 slots are filled, voice channels are created for each team. The **host team** (the more skilled team by combined Redsec Index) queues a **Squads Redsec** match. All four players join the host's lobby — no handicaps applied.
 
 **Step 3 — Play the Match**
-Play your game(s). It's up to both teams to decide the format:
-• **Best of 1** — one game decides it
-• **Best of 3** — first to 2 wins
-• **Best of 5** — first to 3 wins
-Agree on the format before you start!
+All four players are in the same lobby competing against the rest of the battle royale. It's a **kill race** — the team with the most kills at the end of the round wins. A few important rules:
+• The round ends when the game ends or all players from both teams have been eliminated.
+• If both players on a team are eliminated but they hold the kill lead, the match isn't over — the surviving team still has time to catch up.
+• Players may use **redeploys** to bring teammates back into the fight. Players returned via **Second Chance** are fully back in play as normal.
+• Note: if a redeploy brings back an opposing player, they are back in the game and can compete for kills — this is part of the format.
+• Agree on your format before you start: **Best of 1**, **Best of 3**, or **Best of 5**.
 
 **Step 4 — Report the Result**
-When you're done, click **Report Result** on the match embed and select who won. Both teams need to report.
-• If both reports **agree** → XP is applied automatically
-• If reports **conflict** → the match is flagged as disputed and a Moderator will resolve it
+When the series is over, click **Report Result** on the match embed and select the winning team. Both teams must report.
+• If both reports **agree** → XP is applied automatically.
+• If reports **conflict** → the match is flagged as disputed and a Moderator will review.
+• **Keep proof of the score** (screenshot or video) in case of a dispute — mods will ask for it.
 
 **Leaderboard**
 Standings update automatically after every match. Check <#LEADERBOARD_PLACEHOLDER> to see where you rank.
