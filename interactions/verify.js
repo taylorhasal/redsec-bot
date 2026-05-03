@@ -59,17 +59,19 @@ async function handleVerifyModal(interaction) {
     const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
     const resolvedName = data.userName ?? eaId;
 
-    const players = loadPlayers();
+    const players  = loadPlayers();
+    const existing = players[interaction.user.id];
     players[interaction.user.id] = {
         eaId:       resolvedName,
         kd:         parseFloat(kd.toFixed(2)),
         wins,
         redsecIndex,
         verifiedAt: new Date().toISOString(),
+        ...(existing?.displayName ? { displayName: existing.displayName } : {}),
     };
     savePlayers(players);
 
-    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex);
+    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, existing?.displayName ?? null);
 
     const embed = new EmbedBuilder()
         .setColor(0x00CC44)

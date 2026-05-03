@@ -52,17 +52,19 @@ module.exports = {
         const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
         const resolvedName = data.userName ?? eaId;
 
-        const players = loadPlayers();
+        const players  = loadPlayers();
+        const existing = players[target.id];
         players[target.id] = {
             eaId:       resolvedName,
             kd:         parseFloat(kd.toFixed(2)),
             wins,
             redsecIndex,
             verifiedAt: new Date().toISOString(),
+            ...(existing?.displayName ? { displayName: existing.displayName } : {}),
         };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex);
+        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, existing?.displayName ?? null);
 
         const embed = new EmbedBuilder()
             .setColor(0x00CC44)
