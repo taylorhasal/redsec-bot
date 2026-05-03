@@ -26,6 +26,11 @@ const { handleRemoveTeamButton, handleStartTournamentButton } = require('./inter
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
 const { runLiveTrackerTick } = require('./utils/liveTracker');
+const { checkXpQueues } = require('./utils/xpMatch');
+const {
+    handleXpStart, handleXpJoin, handleXpLeave,
+    handleXpReport, handleXpReportWinner, handleXpModResolve,
+} = require('./interactions/xpMatch');
 
 const LFG_CONFIG_FILE   = path.join(require('./utils/dataDir'), 'lfg-config.json');
 const VOICE_CONFIG_FILE = path.join(require('./utils/dataDir'), 'voice-config.json');
@@ -68,6 +73,7 @@ client.once('ready', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
     setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
+    setInterval(() => checkXpQueues(client).catch(console.error), 60 * 1000);
     setInterval(() => runLiveTrackerTick(client).catch(console.error), 5 * 60 * 1000);
 });
 
@@ -112,6 +118,14 @@ client.on('interactionCreate', async interaction => {
                 return handleAuditAdjust(interaction);
             }
             if (interaction.customId.startsWith('verify_platform:')) return handleVerifyPlatformButton(interaction);
+
+            // XP Ranked (more-specific prefixes checked before shorter ones)
+            if (interaction.customId === 'xp_start')                  return handleXpStart(interaction);
+            if (interaction.customId.startsWith('xp_join:'))          return handleXpJoin(interaction);
+            if (interaction.customId.startsWith('xp_leave:'))         return handleXpLeave(interaction);
+            if (interaction.customId.startsWith('xp_report_winner:')) return handleXpReportWinner(interaction);
+            if (interaction.customId.startsWith('xp_report:'))        return handleXpReport(interaction);
+            if (interaction.customId.startsWith('xp_mod_resolve:'))   return handleXpModResolve(interaction);
             return;
         }
 

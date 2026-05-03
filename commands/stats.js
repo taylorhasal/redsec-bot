@@ -4,6 +4,7 @@ const {
     formatTime, fmt, fmtInt,
 } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
+const { loadRatings } = require('../utils/xpMatch');
 const fs   = require('fs');
 const path = require('path');
 
@@ -63,12 +64,14 @@ module.exports = {
         savePlayers(players);
         await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag);
 
-        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex)] });
+        const ratings  = loadRatings();
+        const xpRecord = ratings[interaction.user.id] ?? null;
+        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, xpRecord)] });
     },
 };
 
-function buildStatsEmbed(displayName, s, redsecIndex) {
-    return new EmbedBuilder()
+function buildStatsEmbed(displayName, s, redsecIndex, xpRecord = null) {
+    const embed = new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
         .setDescription('Duo & Squad  ·  All Seasons')
@@ -100,6 +103,16 @@ function buildStatsEmbed(displayName, s, redsecIndex) {
             { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: false },
         )
         .setTimestamp();
+
+    if (xpRecord) {
+        embed.addFields({
+            name:   '🏆  XP Ranked',
+            value:  `**${xpRecord.xp.toLocaleString()} XP**  ·  ${xpRecord.wins}W  ${xpRecord.losses}L`,
+            inline: false,
+        });
+    }
+
+    return embed;
 }
 
 function errorEmbed(description) {
