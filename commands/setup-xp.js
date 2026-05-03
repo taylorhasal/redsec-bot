@@ -50,6 +50,12 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const guild = interaction.guild;
+        const botId  = guild.members.me.id;
+
+        const readOnly = [
+            { id: guild.roles.everyone.id, deny:  [PermissionFlagsBits.SendMessages] },
+            { id: botId,                   allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+        ];
 
         // Category
         const category = await guild.channels.create({
@@ -59,21 +65,17 @@ module.exports = {
 
         // Channels
         const leaderboardCh = await guild.channels.create({
-            name:   'xp-leaderboard',
-            type:   ChannelType.GuildText,
-            parent: category.id,
-            permissionOverwrites: [
-                { id: guild.roles.everyone.id, deny: ['SendMessages'] },
-            ],
+            name:                 'xp-leaderboard',
+            type:                 ChannelType.GuildText,
+            parent:               category.id,
+            permissionOverwrites: readOnly,
         });
 
         const howToPlayCh = await guild.channels.create({
-            name:   'xp-how-to-play',
-            type:   ChannelType.GuildText,
-            parent: category.id,
-            permissionOverwrites: [
-                { id: guild.roles.everyone.id, deny: ['SendMessages'] },
-            ],
+            name:                 'xp-how-to-play',
+            type:                 ChannelType.GuildText,
+            parent:               category.id,
+            permissionOverwrites: readOnly,
         });
 
         const queueCh = await guild.channels.create({
