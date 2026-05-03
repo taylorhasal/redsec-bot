@@ -50,100 +50,113 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const guild = interaction.guild;
-        const botId  = guild.members.me.id;
+        const botId  = interaction.client.user.id;
 
         const readOnly = [
             { id: guild.roles.everyone.id, deny:  [PermissionFlagsBits.SendMessages] },
             { id: botId,                   allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
         ];
 
-        // Category
-        const category = await guild.channels.create({
-            name: '📊 XP Ranked',
-            type: ChannelType.GuildCategory,
-        });
+        try {
+            // Category
+            console.log('[setup-xp] Creating category...');
+            const category = await guild.channels.create({
+                name: '📊 XP Ranked',
+                type: ChannelType.GuildCategory,
+            });
 
-        // Channels
-        const leaderboardCh = await guild.channels.create({
-            name:                 'xp-leaderboard',
-            type:                 ChannelType.GuildText,
-            parent:               category.id,
-            permissionOverwrites: readOnly,
-        });
+            // Channels
+            console.log('[setup-xp] Creating channels...');
+            const leaderboardCh = await guild.channels.create({
+                name:                 'xp-leaderboard',
+                type:                 ChannelType.GuildText,
+                parent:               category.id,
+                permissionOverwrites: readOnly,
+            });
 
-        const howToPlayCh = await guild.channels.create({
-            name:                 'xp-how-to-play',
-            type:                 ChannelType.GuildText,
-            parent:               category.id,
-            permissionOverwrites: readOnly,
-        });
+            const howToPlayCh = await guild.channels.create({
+                name:                 'xp-how-to-play',
+                type:                 ChannelType.GuildText,
+                parent:               category.id,
+                permissionOverwrites: readOnly,
+            });
 
-        const queueCh = await guild.channels.create({
-            name:   'xp-queue',
-            type:   ChannelType.GuildText,
-            parent: category.id,
-        });
+            const queueCh = await guild.channels.create({
+                name:   'xp-queue',
+                type:   ChannelType.GuildText,
+                parent: category.id,
+            });
 
-        const logCh = await guild.channels.create({
-            name:   'xp-match-log',
-            type:   ChannelType.GuildText,
-            parent: category.id,
-        });
+            const logCh = await guild.channels.create({
+                name:   'xp-match-log',
+                type:   ChannelType.GuildText,
+                parent: category.id,
+            });
 
-        // Seed all verified players at 1000 XP (don't overwrite existing)
-        const players = loadPlayers();
-        const ratings = loadRatings();
-        for (const userId of Object.keys(players)) {
-            if (!ratings[userId]) ratings[userId] = { xp: 1000, wins: 0, losses: 0 };
+            // Seed all verified players at 1000 XP (don't overwrite existing)
+            console.log('[setup-xp] Seeding ratings...');
+            const players = loadPlayers();
+            const ratings = loadRatings();
+            for (const userId of Object.keys(players)) {
+                if (!ratings[userId]) ratings[userId] = { xp: 1000, wins: 0, losses: 0 };
+            }
+            saveRatings(ratings);
+
+            // Post leaderboard embed
+            console.log('[setup-xp] Posting leaderboard...');
+            const lbEmbed = buildXpLeaderboardEmbed(ratings, players);
+            const lbMsg   = await leaderboardCh.send({ embeds: [lbEmbed] });
+
+            // Post how-to-play guide
+            console.log('[setup-xp] Posting how-to-play...');
+            const guideText = HOW_TO_PLAY
+                .replace('QUEUE_PLACEHOLDER',       queueCh.id)
+                .replace('LEADERBOARD_PLACEHOLDER', leaderboardCh.id);
+
+            const guideEmbed = new EmbedBuilder()
+                .setColor(0xCC0000)
+                .setTitle('📖  How to Play XP Ranked')
+                .setDescription(guideText)
+                .setFooter({ text: 'Redsec · XP Ranked' })
+                .setTimestamp();
+            await howToPlayCh.send({ embeds: [guideEmbed] });
+
+            // Post persistent "Start XP Match" button in queue channel
+            console.log('[setup-xp] Posting start button...');
+            const startRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('xp_start')
+                    .setLabel('🎯  Start XP Match')
+                    .setStyle(ButtonStyle.Danger),
+            );
+            await queueCh.send({
+                content: '**Click below to create a new XP Ranked match queue.**',
+                components: [startRow],
+            });
+
+            // Save config
+            console.log('[setup-xp] Saving config...');
+            saveXpConfig({
+                categoryId:           category.id,
+                leaderboardChannelId: leaderboardCh.id,
+                leaderboardMessageId: lbMsg.id,
+                howToPlayChannelId:   howToPlayCh.id,
+                queueChannelId:       queueCh.id,
+                logChannelId:         logCh.id,
+            });
+
+            console.log('[setup-xp] Done.');
+            await interaction.editReply(
+                `✅ **XP Ranked** set up!\n` +
+                `• <#${leaderboardCh.id}> — live leaderboard\n` +
+                `• <#${howToPlayCh.id}> — how to play guide\n` +
+                `• <#${queueCh.id}> — match queue\n` +
+                `• <#${logCh.id}> — match log\n` +
+                `\nAll ${Object.keys(players).length} verified player(s) seeded at 1,000 XP.`
+            );
+        } catch (err) {
+            console.error('[setup-xp] FAILED:', err);
+            await interaction.editReply(`❌ Setup failed at step: **${err.message}**`).catch(() => {});
         }
-        saveRatings(ratings);
-
-        // Post leaderboard embed
-        const lbEmbed = buildXpLeaderboardEmbed(ratings, players);
-        const lbMsg   = await leaderboardCh.send({ embeds: [lbEmbed] });
-
-        // Post how-to-play guide
-        const guideText = HOW_TO_PLAY
-            .replace('QUEUE_PLACEHOLDER',       queueCh.id)
-            .replace('LEADERBOARD_PLACEHOLDER', leaderboardCh.id);
-
-        const guideEmbed = new EmbedBuilder()
-            .setColor(0xCC0000)
-            .setTitle('📖  How to Play XP Ranked')
-            .setDescription(guideText)
-            .setFooter({ text: 'Redsec · XP Ranked' })
-            .setTimestamp();
-        await howToPlayCh.send({ embeds: [guideEmbed] });
-
-        // Post persistent "Start XP Match" button in queue channel
-        const startRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('xp_start')
-                .setLabel('🎯  Start XP Match')
-                .setStyle(ButtonStyle.Danger),
-        );
-        await queueCh.send({
-            content: '**Click below to create a new XP Ranked match queue.**',
-            components: [startRow],
-        });
-
-        // Save config
-        saveXpConfig({
-            categoryId:          category.id,
-            leaderboardChannelId: leaderboardCh.id,
-            leaderboardMessageId: lbMsg.id,
-            howToPlayChannelId:  howToPlayCh.id,
-            queueChannelId:      queueCh.id,
-            logChannelId:        logCh.id,
-        });
-
-        await interaction.editReply(
-            `✅ **XP Ranked** set up!\n` +
-            `• <#${leaderboardCh.id}> — live leaderboard\n` +
-            `• <#${howToPlayCh.id}> — how to play guide\n` +
-            `• <#${queueCh.id}> — match queue\n` +
-            `• <#${logCh.id}> — match log\n` +
-            `\nAll ${Object.keys(players).length} verified player(s) seeded at 1,000 XP.`
-        );
     },
 };
