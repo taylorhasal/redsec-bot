@@ -11,11 +11,11 @@ const HOW_TO_PLAY = `
 **Welcome to XP Ranked** — a 2v2 kill-race mode where you earn and lose XP based on your performance and skill gap against your opponents.
 
 **How It Works**
-Your XP starts at **1,000**. After every match, both teams gain or lose XP based on the outcome and the skill difference between the teams (Redsec Index). Beating a stronger team earns you more XP; losing to a weaker team costs you more.
-
-**XP Ranges**
-• Win: **+25 to +100 XP** (more if you were the underdog)
-• Loss: **-15 to -80 XP** (less if you were the heavy favourite)
+Your XP starts at **1,000**. After every match, both teams gain or lose XP based on the outcome and the skill gap between the teams (Redsec Index).
+• Upset a stronger team? You earn significantly more XP.
+• Beat a weaker team? You earn less — it was expected.
+• Lose to a stronger team? You lose less — no shame in that.
+• Lose to a weaker team? You lose more — you were supposed to win.
 
 **How to Play**
 
