@@ -49,7 +49,8 @@ module.exports = {
         }
 
         const redsecIndex = parseFloat(((0.40 - s.kpm) * 25).toFixed(1));
-        const displayName = data.userName ?? record.eaId;
+        const eaName      = data.userName ?? record.eaId;
+        const gamertag    = record.displayName ?? null;
 
         // Keep stored record up to date
         const players = loadPlayers();
@@ -60,9 +61,9 @@ module.exports = {
             kd:   parseFloat(s.kd.toFixed(2)),
         };
         savePlayers(players);
-        await applyPlayerProfile(interaction.guild, interaction.member, displayName, redsecIndex);
+        await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag);
 
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex)] });
+        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex)] });
     },
 };
 
