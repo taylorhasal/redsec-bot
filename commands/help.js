@@ -11,12 +11,22 @@ module.exports = {
             .setTitle('📋  Redsec Bot — Commands')
             .addFields(
                 {
-                    name: '/stats',
-                    value: 'Fetch a player\'s live Redsec stats from Battlefield 6.\n`ea_id` · `platform (optional)`',
+                    name: '👤  Player',
+                    value: [
+                        '`/verify` — Link your EA account to the server',
+                        '`/stats` — View your live Redsec stats',
+                        '`/profile` — Look up another verified player\'s stats',
+                        '`/refresh <gamertag>` — Update your in-game name and re-sync stats',
+                        '`/xp` — Check your XP Ranked position and record',
+                    ].join('\n'),
                 },
                 {
-                    name: '/profile',
-                    value: 'View a verified member\'s Redsec profile including K/D, Win Rate, and Redsec Index.\n`@user`',
+                    name: '🔧  Admin',
+                    value: [
+                        '`/verify-user` — Manually verify a member',
+                        '`/send-guide` — Post the verification guide to a channel',
+                        '`/setup-xp` — Set up the XP Ranked category and channels',
+                    ].join('\n'),
                 },
             )
             .setFooter({ text: 'Redsec · Battlefield 6' })

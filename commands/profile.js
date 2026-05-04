@@ -28,10 +28,13 @@ module.exports = {
         const players = loadPlayers();
 
         const choices = Object.entries(players)
-            .filter(([, r]) => r.eaId?.toLowerCase().includes(typed))
+            .filter(([, r]) =>
+                r.eaId?.toLowerCase().includes(typed) ||
+                r.displayName?.toLowerCase().includes(typed)
+            )
             .slice(0, 25)
             .map(([discordId, r]) => ({
-                name:  r.eaId,
+                name:  r.displayName ?? r.eaId,
                 value: discordId,
             }));
 
