@@ -214,11 +214,17 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         }
 
         // User left a temp channel — delete it when empty
-        if (oldState.channelId && tempVoiceChannels.has(oldState.channelId)) {
+        // Check both in-memory set (this session) and config category (survives restarts)
+        if (oldState.channelId) {
             const ch = oldState.channel;
             if (ch && ch.members.size === 0) {
-                await ch.delete().catch(() => {});
-                tempVoiceChannels.delete(oldState.channelId);
+                const inConfigCategory = voiceCfg?.categoryId &&
+                    ch.parentId === voiceCfg.categoryId &&
+                    ch.id !== voiceCfg.triggerChannelId;
+                if (tempVoiceChannels.has(oldState.channelId) || inConfigCategory) {
+                    await ch.delete().catch(() => {});
+                    tempVoiceChannels.delete(oldState.channelId);
+                }
             }
         }
 
