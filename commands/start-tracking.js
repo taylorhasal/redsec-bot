@@ -42,12 +42,21 @@ module.exports = {
         const trackers = loadTrackers();
 
         if (trackers[userId]) {
-            const lastDetected = trackers[userId].lastDetectedAt;
-            const lastStr = lastDetected
-                ? `last game detected <t:${Math.floor(new Date(lastDetected).getTime() / 1000)}:R>`
-                : 'no games detected yet';
+            if (trackers[userId].personalTracking === true) {
+                const lastDetected = trackers[userId].lastDetectedAt;
+                const lastStr = lastDetected
+                    ? `last game detected <t:${Math.floor(new Date(lastDetected).getTime() / 1000)}:R>`
+                    : 'no games detected yet';
+                return interaction.reply({
+                    content: `You're already being tracked — ${lastStr}. Use \`/stop-tracking\` to stop.`,
+                    ephemeral: true,
+                });
+            }
+            // Tournament-only entry — activate personal tracking without re-fetching snapshot
+            trackers[userId].personalTracking = true;
+            saveTrackers(trackers);
             return interaction.reply({
-                content: `You're already being tracked — ${lastStr}. Use \`/stop-tracking\` to stop.`,
+                content: `✅  Personal tracking enabled for **${trackers[userId].eaId}**. Your games will appear in <#${config.channelId}> within 5 min of finishing.\n*You're also enrolled in tournament auto-scoring — both run independently.*`,
                 ephemeral: true,
             });
         }
@@ -78,12 +87,13 @@ module.exports = {
 
         trackers[userId] = {
             eaId,
-            guildId:        interaction.guild.id,
+            guildId:          interaction.guild.id,
             snapshot,
-            startedAt:      new Date().toISOString(),
-            lastDetectedAt: null,
-            idleStrikes:    0,
-            errorStrikes:   0,
+            personalTracking: true,
+            startedAt:        new Date().toISOString(),
+            lastDetectedAt:   null,
+            idleStrikes:      0,
+            errorStrikes:     0,
         };
         saveTrackers(trackers);
 

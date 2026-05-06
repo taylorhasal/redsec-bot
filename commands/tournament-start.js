@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { loadAll, loadById, save } = require('../utils/tournament');
+const { startTournamentTracking } = require('../utils/tournamentTracker');
 
 const DEADLINE_MS = (2 * 60 + 35) * 60 * 1000; // 2 h 35 m total window
 
@@ -42,6 +43,11 @@ module.exports = {
 
         tournament.startedAt = new Date().toISOString();
         save(tournament);
+
+        // Auto-start live tracking for all registered team members
+        startTournamentTracking(client, tournament).catch(err =>
+            console.error('[tournament-start] startTournamentTracking failed:', err)
+        );
 
         const startTs    = Math.floor(new Date(tournament.startedAt).getTime() / 1000);
         const deadlineTs = startTs + DEADLINE_MS / 1000;

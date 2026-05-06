@@ -3,6 +3,8 @@ const fs   = require('fs');
 const path = require('path');
 const DATA_DIR = require('./dataDir');
 const { fetchPlayerStats } = require('./api');
+const { loadById, save: saveTournament } = require('./tournament');
+const { handleTournamentDetection, pruneExpiredFragments } = require('./tournamentTracker');
 
 const TRACKERS_FILE = path.join(DATA_DIR, 'active-trackers.json');
 const CONFIG_FILE   = path.join(DATA_DIR, 'live-tracker-config.json');
@@ -155,6 +157,11 @@ async function runLiveTrackerTick(client) {
             ? await client.channels.fetch(config.channelId).catch(() => null)
             : null;
 
+        // Collect all tournament IDs with active trackers — prune expired fragments after the loop
+        const touchedTournamentIds = new Set(
+            Object.values(trackers).map(t => t.tournamentId).filter(Boolean)
+        );
+
         for (const userId of userIds) {
             const tracker = trackers[userId];
             if (!tracker) continue;
@@ -167,7 +174,7 @@ async function runLiveTrackerTick(client) {
                 data = await fetchPlayerStats(tracker.eaId, 'ea');
             } catch (err) {
                 tracker.errorStrikes = (tracker.errorStrikes ?? 0) + 1;
-                if (tracker.errorStrikes >= ERROR_STRIKES) {
+                if (tracker.errorStrikes >= ERROR_STRIKES && !tracker.tournamentId) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
@@ -181,7 +188,7 @@ async function runLiveTrackerTick(client) {
             const current = extractRedsecSquadSnapshot(data);
             if (!current) {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
-                if (tracker.idleStrikes >= IDLE_STRIKES) {
+                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
@@ -212,15 +219,28 @@ async function runLiveTrackerTick(client) {
                     secondsPlayed:         current.secondsPlayed         - prev.secondsPlayed,
                 };
 
-                if (trackerChannel) {
-                    const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current);
-                    if (matchesDelta > 1) {
-                        embed.addFields({
-                            name:   '⚠️ Multi-match detection',
-                            value:  `${matchesDelta} matches were played in this 5-min window — stats above are aggregated.`,
-                            inline: false,
-                        });
+                const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current);
+                if (matchesDelta > 1) {
+                    embed.addFields({
+                        name:   '⚠️ Multi-match detection',
+                        value:  `${matchesDelta} matches were played in this 5-min window — stats above are aggregated.`,
+                        inline: false,
+                    });
+                }
+
+                // Tournament and personal tracking are independent — both can fire for the same game.
+                // personalTracking defaults to true for legacy entries (no field = manually started).
+                const isPersonal   = tracker.personalTracking !== false;
+                const isTournament = !!tracker.tournamentId;
+
+                if (isTournament) {
+                    const tournament = loadById(tracker.tournamentId);
+                    if (tournament) {
+                        await handleTournamentDetection(client, tournament, tracker.teamId, userId, delta, current);
+                        saveTournament(tournament);
                     }
+                }
+                if (isPersonal && trackerChannel) {
                     await trackerChannel.send({ embeds: [embed] }).catch(err => console.error('[liveTracker] post failed:', err));
                 }
 
@@ -229,7 +249,7 @@ async function runLiveTrackerTick(client) {
                 tracker.idleStrikes    = 0;
             } else {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
-                if (tracker.idleStrikes >= IDLE_STRIKES) {
+                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
@@ -239,6 +259,15 @@ async function runLiveTrackerTick(client) {
         }
 
         saveTrackers(trackers);
+
+        // Prune expired fragments for every tournament touched this tick
+        for (const tournamentId of touchedTournamentIds) {
+            const t = loadById(tournamentId);
+            if (t) {
+                await pruneExpiredFragments(client, t);
+                saveTournament(t);
+            }
+        }
     } finally {
         tickInFlight = false;
     }

@@ -86,9 +86,16 @@ module.exports = {
             { id: botId,           allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
         ];
 
+        // Tracker channel: @Verified can read but not post; bot can post
+        const trackerPerms = [
+            { id: guild.id,        deny:  ['ViewChannel', 'SendMessages'] },
+            { id: verifiedRole.id, allow: ['ViewChannel', 'ReadMessageHistory'] },
+            { id: botId,           allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+        ];
+
         const [
             regChannel, scoreChannel, lbChannel,
-            chatChannel, rosterChannel, infoChannel,
+            chatChannel, rosterChannel, infoChannel, trackerChannel,
         ] = await Promise.all([
             guild.channels.create({ name: 'registration',      type: ChannelType.GuildText, parent: category.id, permissionOverwrites: readOnlyPerms }),
             guild.channels.create({ name: 'score-submissions', type: ChannelType.GuildText, parent: category.id, permissionOverwrites: readOnlyPerms }),
@@ -96,6 +103,7 @@ module.exports = {
             guild.channels.create({ name: 'tourney-chat',      type: ChannelType.GuildText, parent: category.id, permissionOverwrites: chatPerms }),
             guild.channels.create({ name: 'rosters',           type: ChannelType.GuildText, parent: category.id, permissionOverwrites: readOnlyPerms }),
             guild.channels.create({ name: 'tourney-info',      type: ChannelType.GuildText, parent: category.id, permissionOverwrites: readOnlyPerms }),
+            guild.channels.create({ name: 'tourney-tracker',   type: ChannelType.GuildText, parent: category.id, permissionOverwrites: trackerPerms }),
         ]);
 
         // #registration
@@ -255,6 +263,7 @@ module.exports = {
                 liveLeaderboard:          lbChannel.id,
                 rosters:                  rosterChannel.id,
                 tourneyChat:              chatChannel.id,
+                trackerChannelId:         trackerChannel.id,
                 registrationMessageId:    regMsg.id,
                 scoreSubmissionMessageId: scoreMsg.id,
                 leaderboardMessageId:     null,
@@ -270,7 +279,7 @@ module.exports = {
 
         await interaction.editReply(
             `✅  **${name}** is ready!\n` +
-            `${regChannel} · ${scoreChannel} · ${lbChannel} · ${chatChannel} · ${rosterChannel} · ${infoChannel}`
+            `${regChannel} · ${scoreChannel} · ${lbChannel} · ${chatChannel} · ${rosterChannel} · ${infoChannel} · ${trackerChannel} (admin only)`
         );
     },
 };

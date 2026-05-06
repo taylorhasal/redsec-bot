@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { loadAll, loadById, remove } = require('../utils/tournament');
 const { buildLeaderboardEmbed }     = require('../utils/leaderboard');
+const { stopTournamentTracking }    = require('../utils/tournamentTracker');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -48,6 +49,11 @@ module.exports = {
                 await resultsCh.send({ embeds: [embed] }).catch(() => {});
             }
         }
+
+        // Stop live tracking for all tournament players and remove their tracking role
+        await stopTournamentTracking(client, tournament).catch(err =>
+            console.error('[tournament-end] stopTournamentTracking failed:', err)
+        );
 
         // Delete all channels inside the category, then the category itself
         if (tournament.categoryId) {
