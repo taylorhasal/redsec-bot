@@ -13,7 +13,7 @@ module.exports = {
             .setCustomId('verify_modal')
             .setTitle('Enter Your EA ID');
 
-        const input = new TextInputBuilder()
+        const eaIdInput = new TextInputBuilder()
             .setCustomId('ea_id')
             .setLabel('Your EA ID')
             .setStyle(TextInputStyle.Short)
@@ -22,7 +22,18 @@ module.exports = {
             .setMaxLength(64)
             .setPlaceholder('Found top-right on the Search for Player screen in BF6');
 
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        const displayNameInput = new TextInputBuilder()
+            .setCustomId('display_name')
+            .setLabel('Display Name (optional)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setMaxLength(32)
+            .setPlaceholder('Leave blank to use your EA ID');
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(eaIdInput),
+            new ActionRowBuilder().addComponents(displayNameInput),
+        );
         await interaction.showModal(modal);
     },
 };

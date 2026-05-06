@@ -24,7 +24,7 @@ async function handleVerifyPlatformButton(interaction) {
         .setCustomId('verify_modal')
         .setTitle('Enter Your EA ID');
 
-    const input = new TextInputBuilder()
+    const eaIdInput = new TextInputBuilder()
         .setCustomId('ea_id')
         .setLabel('Your EA ID')
         .setStyle(TextInputStyle.Short)
@@ -33,12 +33,25 @@ async function handleVerifyPlatformButton(interaction) {
         .setMaxLength(64)
         .setPlaceholder('Found top-right on the Search for Player screen in BF6');
 
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    const displayNameInput = new TextInputBuilder()
+        .setCustomId('display_name')
+        .setLabel('Display Name (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(32)
+        .setPlaceholder('Leave blank to use your EA ID');
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(eaIdInput),
+        new ActionRowBuilder().addComponents(displayNameInput),
+    );
     await interaction.showModal(modal);
 }
 
 async function handleVerifyModal(interaction) {
-    const eaId = interaction.fields.getTextInputValue('ea_id').trim();
+    const eaId        = interaction.fields.getTextInputValue('ea_id').trim();
+    const rawDisplay  = interaction.fields.getTextInputValue('display_name').trim();
+    const displayName = rawDisplay.length > 0 ? rawDisplay : null;
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -62,24 +75,27 @@ async function handleVerifyModal(interaction) {
 
     const players  = loadPlayers();
     const existing = players[interaction.user.id];
+    const finalDisplayName = displayName ?? existing?.displayName ?? null;
     players[interaction.user.id] = {
         eaId:       resolvedName,
         kd:         parseFloat(kd.toFixed(2)),
         wins,
         redsecIndex,
         verifiedAt: new Date().toISOString(),
-        ...(existing?.displayName ? { displayName: existing.displayName } : {}),
+        ...(finalDisplayName ? { displayName: finalDisplayName } : {}),
     };
     savePlayers(players);
     initRating(interaction.user.id);
 
-    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, existing?.displayName ?? null);
+    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName);
 
+    const nicknamePreview = `[${formatIndex(redsecIndex)}] ${finalDisplayName ?? resolvedName}`;
     const embed = new EmbedBuilder()
         .setColor(0x00CC44)
         .setTitle('✅  Verification Complete')
         .addFields(
             { name: '🪪 EA ID',        value: `\`${resolvedName}\``,             inline: false },
+            { name: '🏷️ Nickname',     value: `\`${nicknamePreview}\``,          inline: false },
             { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                  inline: true },
             { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,             inline: true },
             { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
