@@ -272,18 +272,11 @@ async function handleTeamNameModal(interaction, client) {
         });
     }
 
-    const options = await buildVerifiedOptions(interaction.guild, tournament, [interaction.user.id]);
-
-    if (options.length === 0) {
-        return finalizeTeam(interaction, client, []);
-    }
-
-    const select = new StringSelectMenuBuilder()
-        .setCustomId('team_player_select')
-        .setPlaceholder('Select up to 3 teammates (verified players only)')
+    const select = new UserSelectMenuBuilder()
+        .setCustomId('team_player_user_select')
+        .setPlaceholder('Search for teammates by name or username')
         .setMinValues(1)
-        .setMaxValues(Math.min(3, options.length))
-        .addOptions(options);
+        .setMaxValues(3);
 
     const soloBtn = new ButtonBuilder()
         .setCustomId('register_solo')
@@ -291,7 +284,7 @@ async function handleTeamNameModal(interaction, client) {
         .setStyle(ButtonStyle.Secondary);
 
     await interaction.editReply({
-        content: `**${teamName}** — You are automatically added as captain.\nSelect teammates below, or skip and register solo.`,
+        content: `**${teamName}** — You are automatically added as captain.\nSearch for and select up to 3 verified teammates below, or skip and register solo.\n*Only verified players will be added — others will be skipped.*`,
         components: [
             new ActionRowBuilder().addComponents(select),
             new ActionRowBuilder().addComponents(soloBtn),
@@ -299,8 +292,14 @@ async function handleTeamNameModal(interaction, client) {
     });
 }
 
-// ── Step 3a: StringSelectMenu — team_player_select ──────────────────────────
+// ── Step 3a: StringSelectMenu — team_player_select (legacy) ─────────────────
 async function handleTeamPlayerSelect(interaction, client) {
+    await interaction.deferUpdate();
+    await finalizeTeam(interaction, client, interaction.values);
+}
+
+// ── Step 3a: UserSelectMenu — team_player_user_select ───────────────────────
+async function handleTeamPlayerUserSelect(interaction, client) {
     await interaction.deferUpdate();
     await finalizeTeam(interaction, client, interaction.values);
 }
@@ -600,6 +599,7 @@ module.exports = {
     handleRegisterButton,
     handleTeamNameModal,
     handleTeamPlayerSelect,
+    handleTeamPlayerUserSelect,
     handleRegisterSolo,
     handleRosterAddButton,
     handleRosterAddSelect,
