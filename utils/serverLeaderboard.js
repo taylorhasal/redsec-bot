@@ -37,7 +37,7 @@ function buildServerLeaderboardEmbed() {
     const sep    = ' ' + '─'.repeat(header.length);
     const lines  = sorted.map(([, p], i) => {
         const rk   = `#${i + 1}`.padEnd(5);
-        const name = p.eaId.slice(0, 22).padEnd(22);
+        const name = (p.displayName ?? p.eaId).slice(0, 22).padEnd(22);
         const idx  = formatIndex(p.redsecIndex).padStart(5);
         const tier = getTier(p.redsecIndex).padEnd(8);
         return ` ${rk} ${name}  ${idx}   ${tier}`;
