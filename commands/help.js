@@ -16,7 +16,7 @@ module.exports = {
                         '`/verify` — Link your EA account to the server',
                         '`/stats` — View your live Redsec stats',
                         '`/profile` — Look up another verified player\'s stats',
-                        '`/refresh <gamertag>` — Update your in-game name and re-sync stats',
+                        '`/change-name <gamertag>` — Update your display name on the leaderboard and roster',
                         '`/xp` — Check your XP Ranked position and record',
                     ].join('\n'),
                 },

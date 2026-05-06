@@ -35,19 +35,19 @@ module.exports = {
                 {
                     name:  '🤖  Step 2: Run /verify',
                     value:
-                        'Type `/verify` in this channel. A popup will appear — enter your **EA ID**.\n\n' +
-                        '> ⚠️ **Only EA ID is accepted** — not Steam, not PS5, not Xbox.\n' +
-                        '> Your EA ID is found in the **top-right corner** of the **"Search for Player"** screen in the BF6 menu.\n\n' +
-                        'The bot will pull your Redsec data and calculate your **Redsec Index**.',
+                        'Type `/verify` in this channel. A popup will appear with **two fields**:\n\n' +
+                        '> **EA ID** *(required)* — found in the **top-right corner** of the **"Search for Player"** screen in BF6.\n' +
+                        '> ⚠️ **Only EA ID is accepted** — not Steam, not PS5, not Xbox.\n\n' +
+                        '> **Display Name** *(optional)* — your in-game gamertag (Steam, Xbox, or PS5 name). Leave blank to use your EA ID.\n\n' +
+                        'The bot will pull your Redsec data, calculate your **Redsec Index**, and automatically set your server nickname.',
                     inline: false,
                 },
                 {
-                    name:  '🕹️  Step 3: Set Your In-Game Name',
+                    name:  '🏷️  Step 3: Your Nickname',
                     value:
-                        'Once verified, **update your Discord display name** (or server nickname) to your **in-game gamertag** — ' +
-                        'the name your teammates and opponents see in-game. This can be your Steam, Xbox, or PS5 username.\n\n' +
-                        'The bot will automatically prefix it with your Redsec Index — for example: `[+1.2] YourGamertag`.\n\n' +
-                        '> 💡 Already verified? Run `/refresh` to re-sync your stats and apply the new format.',
+                        'After verification, the bot automatically sets your server nickname to `[Index] YourName` — no manual changes needed.\n\n' +
+                        '> 💡 Changed your in-game name? Run `/change-name` to update your display name.\n' +
+                        '> 💡 Want to re-sync your stats? Run `/update`.',
                     inline: false,
                 },
                 {
