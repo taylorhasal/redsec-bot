@@ -5,7 +5,7 @@ const {
 } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
-const { loadByChannel, save, newTeamId } = require('../utils/tournament');
+const { loadByChannel, loadById, save, newTeamId } = require('../utils/tournament');
 const { updateLeaderboard }              = require('../utils/leaderboard');
 const { createTeamVoiceChannel, isPastVoiceThreshold } = require('../utils/voiceChannels');
 
@@ -14,6 +14,9 @@ const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 
 // captainId → teamName (cleared after registration completes)
 const pendingRegistrations = new Map();
+
+// adminId → { teamName, tournamentId, captainId? } (cleared after admin registration completes)
+const pendingAdminRegs = new Map();
 
 function loadPlayers() {
     try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
@@ -595,6 +598,148 @@ async function handleRosterDisbandCancel(interaction) {
     await interaction.update({ content: '❌ Disband cancelled.', components: [] });
 }
 
+// ── Admin registration: create team on behalf of players ─────────────────────
+
+async function finalizeAdminTeam(interaction, client, teammateIds) {
+    const adminId  = interaction.user.id;
+    const pending  = pendingAdminRegs.get(adminId);
+    if (!pending?.captainId) {
+        return interaction.editReply({ content: 'Registration timed out. Run `/register-team` again.', components: [] });
+    }
+
+    const { teamName, tournamentId, captainId } = pending;
+    const tournament = loadById(tournamentId);
+    if (!tournament) {
+        pendingAdminRegs.delete(adminId);
+        return interaction.editReply({ content: 'Tournament not found.', components: [] });
+    }
+
+    const players = loadPlayers();
+    const guild   = interaction.guild;
+
+    // Validate captain
+    if (!players[captainId]) {
+        pendingAdminRegs.delete(adminId);
+        return interaction.editReply({
+            content: `⛔ <@${captainId}> has not run \`/verify\` and cannot be set as captain.`,
+            components: [],
+        });
+    }
+    const captainTeamId = getRegisteredTeam(tournament, captainId);
+    if (captainTeamId) {
+        pendingAdminRegs.delete(adminId);
+        return interaction.editReply({
+            content: `⛔ <@${captainId}> is already on **${tournament.teams[captainTeamId].name}**.`,
+            components: [],
+        });
+    }
+
+    const valid   = [captainId];
+    const invalid = [];
+
+    for (const userId of teammateIds) {
+        if (userId === captainId) continue;
+        if (valid.length >= 4) break;
+        const member      = await guild.members.fetch(userId).catch(() => null);
+        const hasData     = !!players[userId];
+        const onTeamId    = getRegisteredTeam(tournament, userId);
+        if (!member || !hasData) {
+            invalid.push(`<@${userId}> — ${!hasData ? 'has not run /verify' : 'not in server'}`);
+        } else if (onTeamId) {
+            invalid.push(`<@${userId}> — already on **${tournament.teams[onTeamId].name}**`);
+        } else {
+            valid.push(userId);
+        }
+    }
+
+    let teamIndex = 0;
+    for (const userId of valid) teamIndex += players[userId]?.redsecIndex ?? 0;
+    teamIndex = parseFloat(teamIndex.toFixed(1));
+
+    const teamId = newTeamId();
+    tournament.teams[teamId] = {
+        name:            teamName,
+        captainId,
+        players:         valid,
+        teamIndex,
+        rosterMessageId: null,
+        scores:          {},
+    };
+    save(tournament);
+    pendingAdminRegs.delete(adminId);
+
+    await updateLeaderboard(client, tournament);
+    await postOrUpdateRoster(client, tournament, teamId);
+
+    if (isPastVoiceThreshold(tournament)) {
+        await createTeamVoiceChannel(client, tournament, teamId, tournament.teams[teamId]).catch(console.error);
+    }
+
+    const teamIdxStr = teamIndex >= 0 ? `+${teamIndex.toFixed(1)}` : `${teamIndex.toFixed(1)}`;
+    const embed = new EmbedBuilder()
+        .setColor(0xCC0000)
+        .setTitle('✅  Team Registered')
+        .addFields(
+            { name: '🏷️ Team Name',  value: `\`${teamName}\``,                      inline: true },
+            { name: '👑 Captain',     value: `<@${captainId}>`,                      inline: true },
+            { name: '​',              value: '​',                                     inline: true },
+            { name: '👥 Players',     value: valid.map(id => `<@${id}>`).join('\n'), inline: true },
+            { name: '📊 Team Index',  value: `\`${teamIdxStr}\``,                    inline: true },
+        )
+        .setFooter({ text: 'Redsec Tournament · Admin Registration' })
+        .setTimestamp();
+
+    if (invalid.length > 0) {
+        embed.addFields({ name: '⚠️ Could not add', value: invalid.join('\n'), inline: false });
+    }
+
+    await interaction.editReply({ content: '', embeds: [embed], components: [] });
+}
+
+// ── Admin Step 2: UserSelectMenu — admin_captain_select ──────────────────────
+async function handleAdminCaptainSelect(interaction) {
+    await interaction.deferUpdate();
+
+    const adminId = interaction.user.id;
+    const pending = pendingAdminRegs.get(adminId);
+    if (!pending) {
+        return interaction.editReply({ content: 'Registration timed out. Run `/register-team` again.', components: [] });
+    }
+
+    pending.captainId = interaction.values[0];
+
+    const select = new UserSelectMenuBuilder()
+        .setCustomId('admin_teammate_select')
+        .setPlaceholder('Search for teammates by name or username')
+        .setMinValues(1)
+        .setMaxValues(3);
+
+    const noTeammatesBtn = new ButtonBuilder()
+        .setCustomId('admin_register_no_teammates')
+        .setLabel('Register without teammates')
+        .setStyle(ButtonStyle.Secondary);
+
+    await interaction.editReply({
+        content: `**${pending.teamName}** — Captain set to <@${pending.captainId}>.\n\nStep 2 of 2 — Select up to 3 teammates, or register solo:`,
+        components: [
+            new ActionRowBuilder().addComponents(select),
+            new ActionRowBuilder().addComponents(noTeammatesBtn),
+        ],
+    });
+}
+
+// ── Admin Step 3a: UserSelectMenu — admin_teammate_select ────────────────────
+async function handleAdminTeammateSelect(interaction, client) {
+    await interaction.deferUpdate();
+    await finalizeAdminTeam(interaction, client, interaction.values);
+}
+
+// ── Admin Step 3b: Button — admin_register_no_teammates ──────────────────────
+async function handleAdminNoTeammates(interaction, client) {
+    await interaction.deferUpdate();
+    await finalizeAdminTeam(interaction, client, []);
+}
+
 module.exports = {
     handleRegisterButton,
     handleTeamNameModal,
@@ -609,4 +754,8 @@ module.exports = {
     handleRosterUnregisterButton,
     handleRosterDisbandConfirm,
     handleRosterDisbandCancel,
+    pendingAdminRegs,
+    handleAdminCaptainSelect,
+    handleAdminTeammateSelect,
+    handleAdminNoTeammates,
 };

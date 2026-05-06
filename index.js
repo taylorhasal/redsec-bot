@@ -19,6 +19,9 @@ const {
     handleRosterUnregisterButton,
     handleRosterDisbandConfirm,
     handleRosterDisbandCancel,
+    handleAdminCaptainSelect,
+    handleAdminTeammateSelect,
+    handleAdminNoTeammates,
 } = require('./interactions/registration');
 const { handleSubmitScoreButton, handleScoreModal, handleEvidenceMessage, handleManageScoresButton, handleSubmitProofButton, handleScoreEditButton, handleScoreDeleteButton } = require('./interactions/scoreSubmission');
 const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal, handleScoreApprove, handleScoreReject } = require('./interactions/audit');
@@ -111,6 +114,7 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId.startsWith('roster_unregister:'))      return handleRosterUnregisterButton(interaction);
             if (interaction.customId.startsWith('roster_disband_confirm:')) return handleRosterDisbandConfirm(interaction);
             if (interaction.customId.startsWith('roster_disband_cancel:'))  return handleRosterDisbandCancel(interaction);
+            if (interaction.customId === 'admin_register_no_teammates')      return handleAdminNoTeammates(interaction, client);
 
             if (interaction.customId.startsWith('audit_approve:')) return handleAuditApprove(interaction);
             if (interaction.customId.startsWith('audit_reject:'))  return handleAuditReject(interaction);
@@ -149,6 +153,8 @@ client.on('interactionCreate', async interaction => {
         if (interaction.isUserSelectMenu()) {
             if (interaction.customId === 'team_player_user_select')           return handleTeamPlayerUserSelect(interaction, client);
             if (interaction.customId.startsWith('roster_add_user_select:'))   return handleRosterAddUserSelect(interaction, client);
+            if (interaction.customId === 'admin_captain_select')              return handleAdminCaptainSelect(interaction);
+            if (interaction.customId === 'admin_teammate_select')             return handleAdminTeammateSelect(interaction, client);
             return;
         }
     } catch (err) {
