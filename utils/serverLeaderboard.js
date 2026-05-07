@@ -33,7 +33,7 @@ function buildServerLeaderboardEmbed() {
 
     if (sorted.length === 0) return null;
 
-    const header = ` RK    EA ID                    IDX     TIER`;
+    const header = ` RK    NAME                     IDX     TIER`;
     const sep    = ' ' + '─'.repeat(header.length);
     const lines  = sorted.map(([, p], i) => {
         const rk   = `#${i + 1}`.padEnd(5);
@@ -51,8 +51,20 @@ function buildServerLeaderboardEmbed() {
             `Showing **${sorted.length}** verified player${sorted.length !== 1 ? 's' : ''}\n\n` +
             `\`\`\`\n${[header, sep, ...lines].join('\n')}\n\`\`\``
         )
-        .setFooter({ text: 'This leaderboard is updated manually once per day' })
+        .setFooter({ text: 'Updated automatically after every /verify and /update' })
         .setTimestamp();
+}
+
+// Returns "#N of M" for the given userId based on the same sort the leaderboard uses
+// (redsecIndex ascending — lower index = more skilled = higher rank). Returns null if
+// the player isn't on the leaderboard (no redsecIndex or no eaId).
+function getServerRank(userId, players = loadPlayers()) {
+    const ranked = Object.entries(players)
+        .filter(([, p]) => typeof p.redsecIndex === 'number' && p.eaId)
+        .sort(([, a], [, b]) => a.redsecIndex - b.redsecIndex);
+    const idx = ranked.findIndex(([uid]) => uid === userId);
+    if (idx === -1) return null;
+    return `#${idx + 1} of ${ranked.length}`;
 }
 
 async function postServerLeaderboard(channel) {
@@ -67,4 +79,4 @@ async function postServerLeaderboard(channel) {
     await channel.send({ embeds: [embed] });
 }
 
-module.exports = { buildServerLeaderboardEmbed, postServerLeaderboard };
+module.exports = { buildServerLeaderboardEmbed, postServerLeaderboard, getServerRank };

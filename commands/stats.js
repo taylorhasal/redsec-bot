@@ -4,6 +4,7 @@ const {
     formatTime, fmt, fmtInt,
 } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
+const { getServerRank } = require('../utils/serverLeaderboard');
 const { loadRecords } = require('../utils/killRace');
 const fs   = require('fs');
 const path = require('path');
@@ -66,11 +67,12 @@ module.exports = {
 
         const records         = loadRecords();
         const killRaceRecord  = records[interaction.user.id] ?? null;
-        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, killRaceRecord)] });
+        const serverRank      = getServerRank(interaction.user.id, players);
+        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, killRaceRecord, serverRank)] });
     },
 };
 
-function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null) {
+function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null, serverRank = null) {
     const embed = new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
@@ -101,6 +103,7 @@ function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null) {
             { name: 'Time Played', value: formatTime(s.timePlayed), inline: true },
 
             { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: false },
+            { name: 'Server Rank',  value: serverRank ?? '—',         inline: false },
         )
         .setTimestamp();
 

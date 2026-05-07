@@ -1,4 +1,7 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
+const {
+    SlashCommandBuilder, PermissionFlagsBits, ChannelType,
+    EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+} = require('discord.js');
 
 const ROLES = [
     { name: 'Verified',  color: null     },
@@ -76,7 +79,7 @@ module.exports = {
         ];
         await findOrCreateChannel('📜-rules-and-info',      ChannelType.GuildText, startHereCat.id, readOnlyPerms);
         await findOrCreateChannel('🛡️-verification-guide', ChannelType.GuildText, startHereCat.id, readOnlyPerms);
-        await findOrCreateChannel('🤖-verify-here',         ChannelType.GuildText, startHereCat.id, readOnlyPerms);
+        const verifyHereCh = await findOrCreateChannel('🤖-verify-here', ChannelType.GuildText, startHereCat.id, readOnlyPerms);
 
         // ── 3. THE OPERATORS — @Verified only ────────────────────────────────
         const operatorsBasePerms = [
@@ -118,7 +121,37 @@ module.exports = {
         await findOrCreateChannel('🕵️-admin-audit', ChannelType.GuildText, commandCenterCat.id);
         await findOrCreateChannel('🚨-log-files',   ChannelType.GuildText, commandCenterCat.id);
 
-        // ── 5. Summary embed ──────────────────────────────────────────────────
+        // ── 5. Persistent Verify Now button in #🤖-verify-here ───────────────
+        const verifyEmbed = new EmbedBuilder()
+            .setColor(0xCC0000)
+            .setTitle('🛡️  Verify Your Account')
+            .setDescription(
+                'Click **Verify Now** below to link your EA ID and unlock the rest of the server.\n\n' +
+                'You\'ll be asked for your **EA ID** (the one you use for Battlefield 6) and an optional **display name** (your gamertag — Steam, Xbox, or PS5).\n\n' +
+                'Once verified, you\'ll get the **@Verified** role, your skill tier, and your Redsec Index — and you\'ll be able to access community channels, tournaments, and 2v2 Kill Race.'
+            )
+            .setFooter({ text: 'Redsec · Verification' });
+        const verifyRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('verify_platform:setup')
+                .setLabel('🛡️  Verify Now')
+                .setStyle(ButtonStyle.Danger),
+        );
+        const recent = await verifyHereCh.messages.fetch({ limit: 10 }).catch(() => null);
+        const existing = recent?.find(m =>
+            m.author.id === botId &&
+            m.embeds.length > 0 &&
+            m.embeds[0].title?.includes('Verify Your Account')
+        );
+        if (existing) {
+            await existing.edit({ embeds: [verifyEmbed], components: [verifyRow] });
+            log.push(`⏭️  Verify Now button (refreshed)`);
+        } else {
+            await verifyHereCh.send({ embeds: [verifyEmbed], components: [verifyRow] });
+            log.push(`✅  Verify Now button posted in **#🤖-verify-here**`);
+        }
+
+        // ── 6. Summary embed ──────────────────────────────────────────────────
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
             .setTitle('🛠️  Redsec Server Setup')

@@ -4,13 +4,38 @@ const { loadRecords, loadPlayers, playerName, sortRecords, winRateLabel } = requ
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('record')
-        .setDescription('View your 2v2 Kill Race record'),
+        .setDescription('View a 2v2 Kill Race record')
+        .addStringOption(option =>
+            option.setName('player')
+                .setDescription('Whose record to view (default: yours)')
+                .setRequired(false)
+                .setAutocomplete(true)),
+
+    async autocomplete(interaction) {
+        const typed   = interaction.options.getFocused().toLowerCase();
+        const players = loadPlayers();
+
+        const choices = Object.entries(players)
+            .filter(([, r]) =>
+                r.eaId?.toLowerCase().includes(typed) ||
+                r.displayName?.toLowerCase().includes(typed)
+            )
+            .slice(0, 25)
+            .map(([discordId, r]) => ({
+                name:  r.displayName ?? r.eaId,
+                value: discordId,
+            }));
+
+        await interaction.respond(choices);
+    },
 
     async execute(interaction) {
         const records = loadRecords();
         const players = loadPlayers();
-        const userId  = interaction.user.id;
+        const userId  = interaction.options.getString('player') ?? interaction.user.id;
+        const isSelf  = userId === interaction.user.id;
         const r       = records[userId];
+        const name    = playerName(userId, players);
 
         if (!r) {
             return interaction.reply({
@@ -18,7 +43,9 @@ module.exports = {
                     new EmbedBuilder()
                         .setColor(0x1a0000)
                         .setTitle('No record yet')
-                        .setDescription('You haven\'t played a 2v2 Kill Race match yet. Queue up to get on the leaderboard.')
+                        .setDescription(isSelf
+                            ? 'You haven\'t played a 2v2 Kill Race match yet. Queue up to get on the leaderboard.'
+                            : `**${name}** hasn't played a 2v2 Kill Race match yet.`)
                         .setTimestamp(),
                 ],
                 ephemeral: true,
@@ -28,7 +55,6 @@ module.exports = {
         const sorted = sortRecords(records);
         const rank   = sorted.findIndex(([uid]) => uid === userId) + 1;
         const total  = sorted.length;
-        const name   = playerName(userId, players);
 
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)

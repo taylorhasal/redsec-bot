@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage } = require('../utils/api');
 const { buildStatsEmbed } = require('./stats');
 const { loadRecords } = require('../utils/killRace');
+const { getServerRank } = require('../utils/serverLeaderboard');
 const fs   = require('fs');
 const path = require('path');
 
@@ -19,8 +20,8 @@ module.exports = {
         .setDescription("View a verified player's Redsec stats")
         .addStringOption(option =>
             option.setName('player')
-                .setDescription('Start typing an EA ID to search verified players')
-                .setRequired(true)
+                .setDescription('Whose profile to view (default: yours)')
+                .setRequired(false)
                 .setAutocomplete(true)),
 
     async autocomplete(interaction) {
@@ -42,13 +43,16 @@ module.exports = {
     },
 
     async execute(interaction) {
-        const discordId = interaction.options.getString('player');
+        const discordId = interaction.options.getString('player') ?? interaction.user.id;
         const players   = loadPlayers();
         const record    = players[discordId];
 
         if (!record) {
+            const isSelf = discordId === interaction.user.id;
             return interaction.reply({
-                embeds: [errorEmbed('Player not found or not verified.')],
+                embeds: [errorEmbed(isSelf
+                    ? 'You have not verified yet. Run `/verify` first.'
+                    : 'Player not found or not verified.')],
                 ephemeral: true,
             });
         }
@@ -74,7 +78,8 @@ module.exports = {
 
         const records         = loadRecords();
         const killRaceRecord  = records[discordId] ?? null;
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord)] });
+        const serverRank      = getServerRank(discordId, players);
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord, serverRank)] });
     },
 };
 
