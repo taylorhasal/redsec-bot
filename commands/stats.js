@@ -4,7 +4,7 @@ const {
     formatTime, fmt, fmtInt,
 } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
-const { loadRatings } = require('../utils/xpMatch');
+const { loadRecords } = require('../utils/killRace');
 const fs   = require('fs');
 const path = require('path');
 
@@ -64,13 +64,13 @@ module.exports = {
         savePlayers(players);
         await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag);
 
-        const ratings  = loadRatings();
-        const xpRecord = ratings[interaction.user.id] ?? null;
-        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, xpRecord)] });
+        const records         = loadRecords();
+        const killRaceRecord  = records[interaction.user.id] ?? null;
+        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, killRaceRecord)] });
     },
 };
 
-function buildStatsEmbed(displayName, s, redsecIndex, xpRecord = null) {
+function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null) {
     const embed = new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
@@ -104,10 +104,12 @@ function buildStatsEmbed(displayName, s, redsecIndex, xpRecord = null) {
         )
         .setTimestamp();
 
-    if (xpRecord) {
+    if (killRaceRecord) {
+        const total  = killRaceRecord.wins + killRaceRecord.losses;
+        const winPct = total > 0 ? `${Math.round(killRaceRecord.wins / total * 100)}%` : '—';
         embed.addFields({
-            name:   '🏆  XP Ranked',
-            value:  `**${xpRecord.xp.toLocaleString()} XP**  ·  ${xpRecord.wins}W  ${xpRecord.losses}L`,
+            name:   '⚔️  2v2 Kill Race',
+            value:  `**${killRaceRecord.wins}W  ${killRaceRecord.losses}L**  ·  ${winPct}`,
             inline: false,
         });
     }

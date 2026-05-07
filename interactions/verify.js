@@ -5,7 +5,6 @@ const {
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
 const { postServerLeaderboard } = require('../utils/serverLeaderboard');
-const { initRating } = require('../utils/xpMatch');
 const fs   = require('fs');
 const path = require('path');
 
@@ -85,7 +84,6 @@ async function handleVerifyModal(interaction) {
         ...(finalDisplayName ? { displayName: finalDisplayName } : {}),
     };
     savePlayers(players);
-    initRating(interaction.user.id);
 
     await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName);
 

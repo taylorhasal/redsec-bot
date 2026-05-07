@@ -20,7 +20,7 @@ module.exports = {
                         '`/profile` — Look up another verified player\'s stats',
                         '`/start-tracking` — Auto-detect your Redsec Squad games (posts to live tracker)',
                         '`/stop-tracking` — Stop personal live tracking',
-                        '`/xp` — View your XP Ranked stats',
+                        '`/record` — View your 2v2 Kill Race W/L record',
                     ].join('\n'),
                 },
             )

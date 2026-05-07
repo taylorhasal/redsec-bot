@@ -1,12 +1,13 @@
 const {
     EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-    StringSelectMenuBuilder, PermissionFlagsBits, ChannelType,
+    PermissionFlagsBits, ChannelType,
 } = require('discord.js');
 const {
-    loadMatches, saveMatches, loadRatings, loadXpConfig, loadPlayers,
-    getOrCreateRating, newMatchId, fmtIndex, playerName,
-    buildQueueEmbed, resolveMatch, updateXpLeaderboard,
-} = require('../utils/xpMatch');
+    loadMatches, saveMatches, loadKillRaceConfig, loadPlayers,
+    newMatchId, playerName,
+    buildQueueEmbed, resolveMatch,
+} = require('../utils/killRace');
+const { formatIndex } = require('../utils/profile');
 
 function isInMatch(matches, userId) {
     return Object.values(matches).some(
@@ -14,13 +15,13 @@ function isInMatch(matches, userId) {
     );
 }
 
-// ── xp_start — posted by /setup-xp; clicking creates a new match queue ────────
-async function handleXpStart(interaction) {
+// ── killrace_start — posted by /setup-kill-race; clicking creates a new match queue ──
+async function handleKillRaceStart(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    const config = loadXpConfig();
+    const config = loadKillRaceConfig();
     if (!config?.queueChannelId) {
-        return interaction.editReply('XP system not set up. Ask an admin to run `/setup-xp`.');
+        return interaction.editReply('2v2 Kill Race not set up. Ask an admin to run `/setup-kill-race`.');
     }
 
     const matches = loadMatches();
@@ -62,24 +63,24 @@ async function handleXpStart(interaction) {
 function buildJoinRow(matchId, t1Full, t2Full) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`xp_join:${matchId}:1`)
+            .setCustomId(`killrace_join:${matchId}:1`)
             .setLabel('Join Team 1')
             .setStyle(ButtonStyle.Danger)
             .setDisabled(t1Full),
         new ButtonBuilder()
-            .setCustomId(`xp_join:${matchId}:2`)
+            .setCustomId(`killrace_join:${matchId}:2`)
             .setLabel('Join Team 2')
             .setStyle(ButtonStyle.Primary)
             .setDisabled(t2Full),
         new ButtonBuilder()
-            .setCustomId(`xp_leave:${matchId}`)
+            .setCustomId(`killrace_leave:${matchId}`)
             .setLabel('Leave Queue')
             .setStyle(ButtonStyle.Secondary),
     );
 }
 
-// ── xp_join — join a team slot ────────────────────────────────────────────────
-async function handleXpJoin(interaction) {
+// ── killrace_join — join a team slot ─────────────────────────────────────────
+async function handleKillRaceJoin(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const [, matchId, teamNum] = interaction.customId.split(':');
@@ -93,16 +94,13 @@ async function handleXpJoin(interaction) {
 
     const userId = interaction.user.id;
 
-    // Already on this team
     if (match[teamKey].includes(userId)) {
         return interaction.editReply('You are already on this team.');
     }
-    // On the other team
     const otherKey = teamKey === 'team1' ? 'team2' : 'team1';
     if (match[otherKey].includes(userId)) {
         return interaction.editReply('You are already on the other team.');
     }
-    // In another open match
     const otherMatch = Object.values(matches).find(
         m => m.id !== matchId && m.status === 'open' &&
              (m.team1.includes(userId) || m.team2.includes(userId))
@@ -117,10 +115,10 @@ async function handleXpJoin(interaction) {
     saveMatches(matches);
 
     const players = loadPlayers();
-    const config  = loadXpConfig();
+    const config  = loadKillRaceConfig();
 
-    const t1Full = match.team1.length >= 2;
-    const t2Full = match.team2.length >= 2;
+    const t1Full  = match.team1.length >= 2;
+    const t2Full  = match.team2.length >= 2;
     const allFull = t1Full && t2Full;
 
     const embed = buildQueueEmbed(match, players);
@@ -152,7 +150,6 @@ async function startActivePhase(client, match, matches, config, players) {
     const guild = await client.guilds.fetch(match.guildId).catch(() => null);
     if (!guild || !config?.categoryId) { saveMatches(matches); return; }
 
-    // Create team VCs
     const vc1 = await guild.channels.create({
         name:   `🔴 Team 1 — #${match.id}`,
         type:   ChannelType.GuildVoice,
@@ -169,7 +166,6 @@ async function startActivePhase(client, match, matches, config, players) {
     if (vc2) match.vc2Id = vc2.id;
     saveMatches(matches);
 
-    // Move players to VCs
     const moveMembers = async (uids, vc) => {
         if (!vc) return;
         for (const uid of uids) {
@@ -180,11 +176,11 @@ async function startActivePhase(client, match, matches, config, players) {
     await moveMembers(match.team1, vc1);
     await moveMembers(match.team2, vc2);
 
-    // Determine host team (lower combined Redsec Index = more skilled = host)
+    // Host team = lower combined Redsec Index (more skilled = creates the lobby)
     const idx1 = match.team1.reduce((s, uid) => s + (players[uid]?.redsecIndex ?? 0), 0);
     const idx2 = match.team2.reduce((s, uid) => s + (players[uid]?.redsecIndex ?? 0), 0);
-    const hostTeam   = idx1 <= idx2 ? 1 : 2;
-    const hostIdx    = hostTeam === 1 ? idx1 : idx2;
+    const hostTeam = idx1 <= idx2 ? 1 : 2;
+    const hostIdx  = hostTeam === 1 ? idx1 : idx2;
 
     const activeEmbed = new EmbedBuilder()
         .setColor(0xCC0000)
@@ -194,7 +190,7 @@ async function startActivePhase(client, match, matches, config, players) {
             { name: '🔵  Team 2', value: match.team2.map(u => `<@${u}> · ${playerName(u, players)}`).join('\n'), inline: true },
             {
                 name:  `🏠  Host: Team ${hostTeam}`,
-                value: `Combined index: \`${fmtIndex(hostIdx)}\`\nCreate the in-game custom lobby — the other team will join you.`,
+                value: `Combined index: \`${formatIndex(hostIdx)}\`\nCreate the in-game custom lobby — the other team will join you.`,
                 inline: false,
             },
         )
@@ -203,7 +199,7 @@ async function startActivePhase(client, match, matches, config, players) {
 
     const reportRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`xp_report:${match.id}`)
+            .setCustomId(`killrace_report:${match.id}`)
             .setLabel('Report Result')
             .setStyle(ButtonStyle.Primary),
     );
@@ -217,8 +213,8 @@ async function startActivePhase(client, match, matches, config, players) {
     }
 }
 
-// ── xp_leave — leave open queue ───────────────────────────────────────────────
-async function handleXpLeave(interaction) {
+// ── killrace_leave — leave open queue ────────────────────────────────────────
+async function handleKillRaceLeave(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const [, matchId] = interaction.customId.split(':');
@@ -229,7 +225,7 @@ async function handleXpLeave(interaction) {
         return interaction.editReply('This match is no longer in the queue phase.');
     }
 
-    const userId = interaction.user.id;
+    const userId  = interaction.user.id;
     const onTeam1 = match.team1.includes(userId);
     const onTeam2 = match.team2.includes(userId);
 
@@ -237,10 +233,9 @@ async function handleXpLeave(interaction) {
         return interaction.editReply('You are not in this match.');
     }
 
-    // If the user is the only person and created the match (team1[0]), cancel it
     const totalPlayers = match.team1.length + match.team2.length;
     if (totalPlayers === 1) {
-        const config = loadXpConfig();
+        const config = loadKillRaceConfig();
         if (config?.queueChannelId && match.queueMessageId) {
             const ch = await interaction.client.channels.fetch(config.queueChannelId).catch(() => null);
             if (ch) {
@@ -258,7 +253,7 @@ async function handleXpLeave(interaction) {
     saveMatches(matches);
 
     const players = loadPlayers();
-    const config  = loadXpConfig();
+    const config  = loadKillRaceConfig();
     const embed   = buildQueueEmbed(match, players);
     const row     = buildJoinRow(matchId, match.team1.length >= 2, match.team2.length >= 2);
 
@@ -273,8 +268,8 @@ async function handleXpLeave(interaction) {
     return interaction.editReply(`You left match **#${matchId}**.`);
 }
 
-// ── xp_report — show ephemeral "who won?" buttons ────────────────────────────
-async function handleXpReport(interaction) {
+// ── killrace_report — show ephemeral "who won?" buttons ──────────────────────
+async function handleKillRaceReport(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const [, matchId] = interaction.customId.split(':');
@@ -300,11 +295,11 @@ async function handleXpReport(interaction) {
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`xp_report_winner:${matchId}:team1`)
+            .setCustomId(`killrace_report_winner:${matchId}:team1`)
             .setLabel(`🔴 Team 1 Won  (${t1Names})`)
             .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-            .setCustomId(`xp_report_winner:${matchId}:team2`)
+            .setCustomId(`killrace_report_winner:${matchId}:team2`)
             .setLabel(`🔵 Team 2 Won  (${t2Names})`)
             .setStyle(ButtonStyle.Primary),
     );
@@ -312,8 +307,8 @@ async function handleXpReport(interaction) {
     return interaction.editReply({ content: `**Match #${matchId}** — who won?`, components: [row] });
 }
 
-// ── xp_report_winner — record vote, check agreement ──────────────────────────
-async function handleXpReportWinner(interaction) {
+// ── killrace_report_winner — record vote, check agreement ────────────────────
+async function handleKillRaceReportWinner(interaction) {
     await interaction.deferUpdate();
 
     const [, matchId, reportedWinner] = interaction.customId.split(':');
@@ -333,11 +328,10 @@ async function handleXpReportWinner(interaction) {
         return interaction.editReply({ content: 'You already submitted a report.', components: [] });
     }
 
-    match.reports[userId]  = reportedWinner;
-    match.status           = 'reporting';
+    match.reports[userId] = reportedWinner;
+    match.status          = 'reporting';
     saveMatches(matches);
 
-    // Check if we have one report from each team side
     const t1Reports = match.team1.filter(u => match.reports[u]);
     const t2Reports = match.team2.filter(u => match.reports[u]);
 
@@ -345,29 +339,26 @@ async function handleXpReportWinner(interaction) {
 
     if (t1Reports.length === 0 || t2Reports.length === 0) return;
 
-    // Get first report from each side
     const vote1 = match.reports[t1Reports[0]];
     const vote2 = match.reports[t2Reports[0]];
 
     if (vote1 === vote2) {
-        // Agreement — resolve
-        const config  = loadXpConfig();
-        const result  = await resolveMatch(interaction.client, match, vote1);
-        match.status  = 'complete';
-        match.winner  = vote1;
+        const config = loadKillRaceConfig();
+        await resolveMatch(interaction.client, match, vote1);
+        match.status = 'complete';
+        match.winner = vote1;
         saveMatches(matches);
-        await postMatchLog(interaction.client, match, result, config, false);
+        await postMatchLog(interaction.client, match, config, false);
     } else {
-        // Dispute
         match.status = 'disputed';
         saveMatches(matches);
-        const config = loadXpConfig();
+        const config = loadKillRaceConfig();
         await postDisputeLog(interaction.client, match, config);
     }
 }
 
-// ── xp_mod_resolve — admin/mod overrides disputed match ──────────────────────
-async function handleXpModResolve(interaction) {
+// ── killrace_mod_resolve — admin/mod overrides disputed match ────────────────
+async function handleKillRaceModResolve(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
@@ -384,15 +375,14 @@ async function handleXpModResolve(interaction) {
         return interaction.editReply('This match is not in a disputed state.');
     }
 
-    const config = loadXpConfig();
-    const result = await resolveMatch(interaction.client, match, winnerTeam);
+    const config = loadKillRaceConfig();
+    await resolveMatch(interaction.client, match, winnerTeam);
     match.status = 'complete';
     match.winner = winnerTeam;
     saveMatches(matches);
 
-    await postMatchLog(interaction.client, match, result, config, true);
+    await postMatchLog(interaction.client, match, config, true);
 
-    // Disable mod buttons on the dispute message
     if (config?.logChannelId && match.disputeMessageId) {
         const ch = await interaction.client.channels.fetch(config.logChannelId).catch(() => null);
         if (ch) {
@@ -406,36 +396,26 @@ async function handleXpModResolve(interaction) {
 
 // ── Helpers for log channel embeds ───────────────────────────────────────────
 
-async function postMatchLog(client, match, result, config, byMod) {
+async function postMatchLog(client, match, config, byMod) {
     if (!config?.logChannelId) return;
     const ch = await client.channels.fetch(config.logChannelId).catch(() => null);
     if (!ch) return;
 
-    const players    = require('../utils/xpMatch').loadPlayers();
-    const winnerTeam = result.team1Won ? 'team1' : 'team2';
-    const loserTeam  = result.team1Won ? 'team2' : 'team1';
+    const players    = loadPlayers();
+    const winnerKey  = match.winner === 'team1' ? 'team1' : 'team2';
+    const loserKey   = winnerKey === 'team1' ? 'team2' : 'team1';
 
-    const winNames  = match[winnerTeam].map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
-    const loseNames = match[loserTeam].map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
+    const winNames  = match[winnerKey].map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
+    const loseNames = match[loserKey].map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
 
     const embed = new EmbedBuilder()
         .setColor(0x00CC44)
         .setTitle(`✅  Match #${match.id} Complete${byMod ? ' (Mod Override)' : ''}`)
         .addFields(
-            { name: `🏆 Winners (${winnerTeam === 'team1' ? 'Team 1' : 'Team 2'})`, value: winNames, inline: true },
-            { name: `❌ Losers (${loserTeam === 'team1' ? 'Team 1' : 'Team 2'})`,   value: loseNames, inline: true },
-            {
-                name:  'XP Changes',
-                value: `Winners: **${result.team1Won ? `+${result.delta1}` : `+${result.delta2}`}** XP\nLosers: **${result.team1Won ? result.delta2 : result.delta1}** XP`,
-                inline: false,
-            },
-            {
-                name:  'Team Index',
-                value: `Team 1: \`${fmtIndex(result.idx1)}\`  ·  Team 2: \`${fmtIndex(result.idx2)}\``,
-                inline: false,
-            },
+            { name: `🏆 Winners (${winnerKey === 'team1' ? 'Team 1' : 'Team 2'})`, value: winNames,  inline: true },
+            { name: `❌ Losers (${loserKey === 'team1' ? 'Team 1' : 'Team 2'})`,   value: loseNames, inline: true },
         )
-        .setFooter({ text: 'Redsec · XP Ranked' })
+        .setFooter({ text: 'Redsec · 2v2 Kill Race' })
         .setTimestamp();
 
     await ch.send({ embeds: [embed] }).catch(() => {});
@@ -446,7 +426,7 @@ async function postDisputeLog(client, match, config) {
     const ch = await client.channels.fetch(config.logChannelId).catch(() => null);
     if (!ch) return;
 
-    const players = require('../utils/xpMatch').loadPlayers();
+    const players = loadPlayers();
 
     const t1Names = match.team1.map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
     const t2Names = match.team2.map(u => `<@${u}> · ${playerName(u, players)}`).join('\n');
@@ -465,16 +445,16 @@ async function postDisputeLog(client, match, config) {
             { name: 'Conflicting Reports', value: reportLines || 'None recorded', inline: false },
         )
         .setDescription('Moderators: review and resolve below.')
-        .setFooter({ text: 'Redsec · XP Ranked — Dispute' })
+        .setFooter({ text: 'Redsec · 2v2 Kill Race — Dispute' })
         .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`xp_mod_resolve:${match.id}:team1`)
+            .setCustomId(`killrace_mod_resolve:${match.id}:team1`)
             .setLabel('Team 1 Wins')
             .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-            .setCustomId(`xp_mod_resolve:${match.id}:team2`)
+            .setCustomId(`killrace_mod_resolve:${match.id}:team2`)
             .setLabel('Team 2 Wins')
             .setStyle(ButtonStyle.Primary),
     );
@@ -490,10 +470,10 @@ async function postDisputeLog(client, match, config) {
 }
 
 module.exports = {
-    handleXpStart,
-    handleXpJoin,
-    handleXpLeave,
-    handleXpReport,
-    handleXpReportWinner,
-    handleXpModResolve,
+    handleKillRaceStart,
+    handleKillRaceJoin,
+    handleKillRaceLeave,
+    handleKillRaceReport,
+    handleKillRaceReportWinner,
+    handleKillRaceModResolve,
 };

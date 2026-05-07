@@ -3,27 +3,20 @@ const {
     EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
 } = require('discord.js');
 const {
-    loadRatings, saveRatings, loadPlayers, saveXpConfig,
-    buildXpLeaderboardEmbed,
-} = require('../utils/xpMatch');
+    loadRecords, loadPlayers, saveKillRaceConfig,
+    buildLeaderboardEmbed,
+} = require('../utils/killRace');
 
 const HOW_TO_PLAY = `
-**Welcome to XP Ranked** — a 2v2 kill-race mode where you earn and lose XP based on your performance and the skill gap between teams.
-
-**How It Works**
-Your XP starts at **1,000**. After every match, both teams gain or lose XP based on the outcome and the skill gap between the teams (Redsec Index).
-• Upset a stronger team? You earn significantly more XP.
-• Beat a weaker team? You earn less — it was expected.
-• Lose to a stronger team? You lose less — no shame in that.
-• Lose to a weaker team? You lose more — you were supposed to win.
+**Welcome to 2v2 Kill Race** — a head-to-head squad mode where two teams of two compete in a Redsec Squad lobby and the team with more kills wins. Wins and losses are tracked on the leaderboard.
 
 **How to Play**
 
 **Step 1 — Queue Up**
-Click **Start XP Match** in <#QUEUE_PLACEHOLDER>. A match queue embed will appear. Join Team 1 or Team 2 — you need 2 players per side to start.
+Click **Start 2v2 Kill Race Match** in <#QUEUE_PLACEHOLDER>. A match queue embed will appear. Join Team 1 or Team 2 — you need 2 players per side to start.
 
 **Step 2 — Set Up the Lobby**
-Once all 4 slots are filled, voice channels are created for each team. The **host team** (the more skilled team by combined Redsec Index) queues a **Squads Redsec** match. All four players join the host's lobby — no handicaps applied.
+Once all 4 slots are filled, voice channels are created for each team. The **host team** (the more skilled team by combined Redsec Index) queues a **Squads Redsec** match. All four players join the host's lobby.
 
 **Step 3 — Play the Match**
 All four players are in the same lobby competing against the rest of the battle royale. It's a **kill race** — the team with the most kills at the end of the round wins. A few important rules:
@@ -35,18 +28,18 @@ All four players are in the same lobby competing against the rest of the battle 
 
 **Step 4 — Report the Result**
 When the series is over, click **Report Result** on the match embed and select the winning team. Both teams must report.
-• If both reports **agree** → XP is applied automatically.
+• If both reports **agree** → the result is recorded automatically and W/L updates instantly.
 • If reports **conflict** → the match is flagged as disputed and a Moderator will review.
 • **Keep proof of the score** (screenshot or video) in case of a dispute — mods will ask for it.
 
 **Leaderboard**
-Standings update automatically after every match. Check <#LEADERBOARD_PLACEHOLDER> to see where you rank.
+Standings update automatically after every match. Check <#LEADERBOARD_PLACEHOLDER> to see where you rank. You only appear after your first completed match.
 `.trim();
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('setup-xp')
-        .setDescription('Create the XP Ranked category, channels, leaderboard, and start button')
+        .setName('setup-kill-race')
+        .setDescription('Create the 2v2 Kill Race category, channels, leaderboard, and start button')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
@@ -60,85 +53,73 @@ module.exports = {
         ];
 
         try {
-            // Category
-            console.log('[setup-xp] Creating category...');
+            console.log('[setup-kill-race] Creating category...');
             const category = await guild.channels.create({
-                name: '📊 XP Ranked',
+                name: '⚔️ 2v2 Kill Race',
                 type: ChannelType.GuildCategory,
             });
 
-            // Channels
-            console.log('[setup-xp] Creating channels...');
+            console.log('[setup-kill-race] Creating channels...');
             const leaderboardCh = await guild.channels.create({
-                name:                 'xp-leaderboard',
+                name:                 'kill-race-leaderboard',
                 type:                 ChannelType.GuildText,
                 parent:               category.id,
                 permissionOverwrites: readOnly,
             });
 
             const howToPlayCh = await guild.channels.create({
-                name:                 'xp-how-to-play',
+                name:                 'kill-race-how-to-play',
                 type:                 ChannelType.GuildText,
                 parent:               category.id,
                 permissionOverwrites: readOnly,
             });
 
             const queueCh = await guild.channels.create({
-                name:   'xp-queue',
+                name:   'kill-race-queue',
                 type:   ChannelType.GuildText,
                 parent: category.id,
             });
 
             const logCh = await guild.channels.create({
-                name:   'xp-match-log',
+                name:   'kill-race-log',
                 type:   ChannelType.GuildText,
                 parent: category.id,
             });
 
-            // Seed all verified players at 1000 XP (don't overwrite existing)
-            console.log('[setup-xp] Seeding ratings...');
+            // Post leaderboard embed (empty state — players appear after their first match)
+            console.log('[setup-kill-race] Posting leaderboard...');
+            const records = loadRecords();
             const players = loadPlayers();
-            const ratings = loadRatings();
-            for (const userId of Object.keys(players)) {
-                if (!ratings[userId]) ratings[userId] = { xp: 1000, wins: 0, losses: 0 };
-            }
-            saveRatings(ratings);
-
-            // Post leaderboard embed
-            console.log('[setup-xp] Posting leaderboard...');
-            const lbEmbed = buildXpLeaderboardEmbed(ratings, players);
+            const lbEmbed = buildLeaderboardEmbed(records, players);
             const lbMsg   = await leaderboardCh.send({ embeds: [lbEmbed] });
 
-            // Post how-to-play guide
-            console.log('[setup-xp] Posting how-to-play...');
+            console.log('[setup-kill-race] Posting how-to-play...');
             const guideText = HOW_TO_PLAY
                 .replace('QUEUE_PLACEHOLDER',       queueCh.id)
                 .replace('LEADERBOARD_PLACEHOLDER', leaderboardCh.id);
 
             const guideEmbed = new EmbedBuilder()
                 .setColor(0xCC0000)
-                .setTitle('📖  How to Play XP Ranked')
+                .setTitle('📖  How to Play 2v2 Kill Race')
                 .setDescription(guideText)
-                .setFooter({ text: 'Redsec · XP Ranked' })
+                .setFooter({ text: 'Redsec · 2v2 Kill Race' })
                 .setTimestamp();
             await howToPlayCh.send({ embeds: [guideEmbed] });
 
-            // Post persistent "Start XP Match" button in queue channel
-            console.log('[setup-xp] Posting start button...');
+            console.log('[setup-kill-race] Posting start button...');
             const startRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId('xp_start')
-                    .setLabel('🎯  Start XP Match')
+                    .setCustomId('killrace_start')
+                    .setLabel('⚔️  Start 2v2 Kill Race Match')
                     .setStyle(ButtonStyle.Danger),
             );
             await queueCh.send({
-                content: '**Click below to create a new XP Ranked match queue.**',
+                content: '**Click below to create a new 2v2 Kill Race match queue.**',
                 components: [startRow],
             });
 
-            // Save config
-            console.log('[setup-xp] Saving config...');
-            saveXpConfig({
+            console.log('[setup-kill-race] Saving config...');
+            saveKillRaceConfig({
                 categoryId:           category.id,
                 leaderboardChannelId: leaderboardCh.id,
                 leaderboardMessageId: lbMsg.id,
@@ -147,17 +128,17 @@ module.exports = {
                 logChannelId:         logCh.id,
             });
 
-            console.log('[setup-xp] Done.');
+            console.log('[setup-kill-race] Done.');
             await interaction.editReply(
-                `✅ **XP Ranked** set up!\n` +
+                `✅ **2v2 Kill Race** set up!\n` +
                 `• <#${leaderboardCh.id}> — live leaderboard\n` +
                 `• <#${howToPlayCh.id}> — how to play guide\n` +
                 `• <#${queueCh.id}> — match queue\n` +
                 `• <#${logCh.id}> — match log\n` +
-                `\nAll ${Object.keys(players).length} verified player(s) seeded at 1,000 XP.`
+                `\nPlayers appear on the leaderboard after their first completed match.`
             );
         } catch (err) {
-            console.error('[setup-xp] FAILED:', err);
+            console.error('[setup-kill-race] FAILED:', err);
             await interaction.editReply(`❌ Setup failed at step: **${err.message}**`).catch(() => {});
         }
     },

@@ -45,7 +45,7 @@ module.exports = {
                         '`/setup-lfg` — Create Looking for Group channels',
                         '`/setup-voice` — Create dynamic voice channels',
                         '`/setup-live-tracker` — Create the live tracking channel',
-                        '`/setup-xp` — Create XP Ranked channels and leaderboard',
+                        '`/setup-kill-race` — Create 2v2 Kill Race channels and leaderboard',
                         '`/setup-rules` — Post or refresh the rules channel',
                     ].join('\n'),
                 },

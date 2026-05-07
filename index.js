@@ -29,11 +29,11 @@ const { handleRemoveTeamButton, handleStartTournamentButton } = require('./inter
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
 const { runLiveTrackerTick } = require('./utils/liveTracker');
-const { checkXpQueues } = require('./utils/xpMatch');
+const { checkKillRaceQueues } = require('./utils/killRace');
 const {
-    handleXpStart, handleXpJoin, handleXpLeave,
-    handleXpReport, handleXpReportWinner, handleXpModResolve,
-} = require('./interactions/xpMatch');
+    handleKillRaceStart, handleKillRaceJoin, handleKillRaceLeave,
+    handleKillRaceReport, handleKillRaceReportWinner, handleKillRaceModResolve,
+} = require('./interactions/killRace');
 
 const LFG_CONFIG_FILE   = path.join(require('./utils/dataDir'), 'lfg-config.json');
 const VOICE_CONFIG_FILE = path.join(require('./utils/dataDir'), 'voice-config.json');
@@ -76,7 +76,7 @@ client.once('ready', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
     setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
-    setInterval(() => checkXpQueues(client).catch(console.error), 60 * 1000);
+    setInterval(() => checkKillRaceQueues(client).catch(console.error), 60 * 1000);
     setInterval(() => runLiveTrackerTick(client).catch(console.error), 5 * 60 * 1000);
 });
 
@@ -123,13 +123,13 @@ client.on('interactionCreate', async interaction => {
             }
             if (interaction.customId.startsWith('verify_platform:')) return handleVerifyPlatformButton(interaction);
 
-            // XP Ranked (more-specific prefixes checked before shorter ones)
-            if (interaction.customId === 'xp_start')                  return handleXpStart(interaction);
-            if (interaction.customId.startsWith('xp_join:'))          return handleXpJoin(interaction);
-            if (interaction.customId.startsWith('xp_leave:'))         return handleXpLeave(interaction);
-            if (interaction.customId.startsWith('xp_report_winner:')) return handleXpReportWinner(interaction);
-            if (interaction.customId.startsWith('xp_report:'))        return handleXpReport(interaction);
-            if (interaction.customId.startsWith('xp_mod_resolve:'))   return handleXpModResolve(interaction);
+            // 2v2 Kill Race (more-specific prefixes checked before shorter ones)
+            if (interaction.customId === 'killrace_start')                  return handleKillRaceStart(interaction);
+            if (interaction.customId.startsWith('killrace_join:'))          return handleKillRaceJoin(interaction);
+            if (interaction.customId.startsWith('killrace_leave:'))         return handleKillRaceLeave(interaction);
+            if (interaction.customId.startsWith('killrace_report_winner:')) return handleKillRaceReportWinner(interaction);
+            if (interaction.customId.startsWith('killrace_report:'))        return handleKillRaceReport(interaction);
+            if (interaction.customId.startsWith('killrace_mod_resolve:'))   return handleKillRaceModResolve(interaction);
             return;
         }
 

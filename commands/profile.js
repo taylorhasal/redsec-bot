@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage } = require('../utils/api');
 const { buildStatsEmbed } = require('./stats');
-const { loadRatings } = require('../utils/xpMatch');
+const { loadRecords } = require('../utils/killRace');
 const fs   = require('fs');
 const path = require('path');
 
@@ -72,9 +72,9 @@ module.exports = {
         const redsecIndex = parseFloat(((0.40 - s.kpm) * 25).toFixed(1));
         const displayName = record.displayName ?? data.userName ?? record.eaId;
 
-        const ratings  = loadRatings();
-        const xpRecord = ratings[discordId] ?? null;
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, xpRecord)] });
+        const records         = loadRecords();
+        const killRaceRecord  = records[discordId] ?? null;
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord)] });
     },
 };
 
