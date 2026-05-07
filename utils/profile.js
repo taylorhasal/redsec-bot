@@ -61,6 +61,30 @@ async function applyPlayerProfile(guild, member, eaId, redsecIndex, displayName 
         indexRole = await guild.roles.create({ name: newIndexName, reason: 'Redsec index role' }).catch(() => null);
     }
     if (indexRole) await member.roles.add(indexRole).catch(() => {});
+
+    // Remove old EA: role
+    const oldEaRole = member.roles.cache.find(r => r.name.startsWith('EA: '));
+    if (oldEaRole && oldEaRole.name !== `EA: ${eaId}`) {
+        await member.roles.remove(oldEaRole).catch(() => {});
+        if (oldEaRole.members.size === 0) {
+            await oldEaRole.delete('Redsec EA ID changed').catch(() => {});
+        }
+    }
+
+    // Assign new EA: role (create if missing)
+    const newEaName = `EA: ${eaId}`;
+    let eaRole = guild.roles.cache.find(r => r.name === newEaName);
+    if (!eaRole) {
+        eaRole = await guild.roles.create({
+            name:        newEaName,
+            mentionable: false,
+            hoist:       false,
+            reason:      'Redsec EA ID role',
+        }).catch(() => null);
+    }
+    if (eaRole && !member.roles.cache.has(eaRole.id)) {
+        await member.roles.add(eaRole).catch(() => {});
+    }
 }
 
 module.exports = { applyPlayerProfile, getSkillRoleName, formatIndex };
