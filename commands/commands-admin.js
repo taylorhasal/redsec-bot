@@ -42,6 +42,7 @@ module.exports = {
                     value: [
                         '`/setup` — Bootstrap the full server infrastructure',
                         '`/setup-community` — Create community channels',
+                        '`/setup-verify` — Create the verify channel and post the Verify Now button',
                         '`/setup-lfg` — Create Looking for Group channels',
                         '`/setup-voice` — Create dynamic voice channels',
                         '`/setup-live-tracker` — Create the live tracking channel',
