@@ -26,11 +26,18 @@ module.exports = {
         .addStringOption(option =>
             option.setName('ea_id')
                 .setDescription('Their EA ID')
-                .setRequired(true)),
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('display_name')
+                .setDescription('Their in-game display name (Steam/Xbox/PS5 gamertag) — optional')
+                .setRequired(false)
+                .setMaxLength(32)),
 
     async execute(interaction) {
-        const target = interaction.options.getMember('member');
-        const eaId   = interaction.options.getString('ea_id').trim();
+        const target          = interaction.options.getMember('member');
+        const eaId            = interaction.options.getString('ea_id').trim();
+        const rawDisplayName  = interaction.options.getString('display_name');
+        const displayNameArg  = rawDisplayName?.trim() || null;
 
         await interaction.deferReply({ ephemeral: true });
 
@@ -52,19 +59,20 @@ module.exports = {
         const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
         const resolvedName = data.userName ?? eaId;
 
-        const players  = loadPlayers();
-        const existing = players[target.id];
+        const players          = loadPlayers();
+        const existing         = players[target.id];
+        const finalDisplayName = displayNameArg ?? existing?.displayName ?? null;
         players[target.id] = {
             eaId:       resolvedName,
             kd:         parseFloat(kd.toFixed(2)),
             wins,
             redsecIndex,
             verifiedAt: new Date().toISOString(),
-            ...(existing?.displayName ? { displayName: existing.displayName } : {}),
+            ...(finalDisplayName ? { displayName: finalDisplayName } : {}),
         };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, existing?.displayName ?? null);
+        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, finalDisplayName);
 
         const embed = new EmbedBuilder()
             .setColor(0x00CC44)
@@ -72,6 +80,7 @@ module.exports = {
             .addFields(
                 { name: '👤 Discord',      value: `<@${target.id}>`,               inline: false },
                 { name: '🪪 EA ID',        value: `\`${resolvedName}\``,           inline: true },
+                ...(finalDisplayName ? [{ name: '🏷️ Display Name', value: `\`${finalDisplayName}\``, inline: true }] : []),
                 { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,               inline: true },
                 { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,           inline: true },
                 { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
