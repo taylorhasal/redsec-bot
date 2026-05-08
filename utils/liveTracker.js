@@ -28,6 +28,25 @@ function loadConfig() {
     catch { return null; }
 }
 
+// Pull a value from a top-level divided* array by category. Tolerant of common
+// shapes used by gametools (category | name | label | type keys, value | damage |
+// kills numeric fields). Case-insensitive substring match so "human" matches
+// "humanDamage" / "Human" / "infantry-human", etc.
+function dividedValue(arr, target) {
+    if (!Array.isArray(arr)) return 0;
+    const norm = String(target).toLowerCase();
+    for (const entry of arr) {
+        if (!entry || typeof entry !== 'object') continue;
+        const label = String(
+            entry.category ?? entry.name ?? entry.label ?? entry.type ?? ''
+        ).toLowerCase();
+        if (label === norm || label.includes(norm)) {
+            return entry.value ?? entry.kills ?? entry.damage ?? 0;
+        }
+    }
+    return 0;
+}
+
 function extractRedsecSquadSnapshot(data) {
     const m = (data?.gameModes ?? []).find(g => g.id === 'gm_brsquad');
     if (!m) return null;
@@ -48,6 +67,9 @@ function extractRedsecSquadSnapshot(data) {
         scoreIn:               m.scoreIn               ?? 0,
         secondsPlayed:         m.secondsPlayed         ?? 0,
         lastPlacement:         data.lastPlacement      ?? 0,
+        humanDamage:           dividedValue(data.devidedDamage ?? data.dividedDamage, 'human'),
+        vehicleDamage:         dividedValue(data.devidedDamage ?? data.dividedDamage, 'vehicle'),
+        vehicleKills:          dividedValue(data.dividedKills, 'vehicle'),
     };
 }
 
@@ -133,6 +155,10 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot) {
             { name: '🏅 Score',      value: `\`${delta.scoreIn}\``,                       inline: true },
             { name: '🚑 Revives',    value: `\`${delta.revives}\``,                       inline: true },
             { name: '👁️ Spots',      value: `\`${delta.spots}\``,                         inline: true },
+
+            { name: '🚗 Vehicle Kills',    value: `\`${delta.vehicleKills}\``,                       inline: true },
+            { name: '💥 Damage (Human)',   value: `\`${(delta.humanDamage ?? 0).toLocaleString()}\``,   inline: true },
+            { name: '💥 Damage (Vehicle)', value: `\`${(delta.vehicleDamage ?? 0).toLocaleString()}\``, inline: true },
         )
         .setFooter({ text: 'Detected via live tracker · /stop-tracking to disable' })
         .setTimestamp();
@@ -217,6 +243,9 @@ async function runLiveTrackerTick(client) {
                     vehiclesDestroyedWith: current.vehiclesDestroyedWith - prev.vehiclesDestroyedWith,
                     scoreIn:               current.scoreIn               - prev.scoreIn,
                     secondsPlayed:         current.secondsPlayed         - prev.secondsPlayed,
+                    humanDamage:           current.humanDamage   - (prev.humanDamage   ?? current.humanDamage),
+                    vehicleDamage:         current.vehicleDamage - (prev.vehicleDamage ?? current.vehicleDamage),
+                    vehicleKills:          current.vehicleKills  - (prev.vehicleKills  ?? current.vehicleKills),
                 };
 
                 const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current);
