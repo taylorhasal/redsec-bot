@@ -94,4 +94,4 @@ function buildErrorMessage(err) {
     return `The stats API returned an unexpected error (${msg}). Check the bot console for details.`;
 }
 
-module.exports = { fetchPlayerStats, extractRedsecStats, buildErrorMessage, formatTime, fmt, fmtInt };
+module.exports = { fetchPlayerStats, extractRedsecStats, buildErrorMessage, formatTime, fmt, fmtInt, REDSEC_MODE_IDS };

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { fetchPlayerStats } = require('../utils/api');
+const { fetchPlayerStats, REDSEC_MODE_IDS } = require('../utils/api');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,26 +32,22 @@ module.exports = {
             return interaction.editReply(`API error: \`${err.message}\``);
         }
 
-        const seasons = Array.isArray(data.redsec) ? data.redsec : null;
-
-        if (!seasons) {
-            return interaction.editReply('`data.redsec` is missing or not an array.');
+        const gameModes = Array.isArray(data.gameModes) ? data.gameModes : null;
+        if (!gameModes) {
+            return interaction.editReply('`data.gameModes` is missing or not an array.');
         }
 
-        // Dump every field for every season → mode
-        const INCLUDED = new Set(['duos', 'quads', 'solo']);
-        const lines = [];
-
-        for (const season of seasons) {
-            lines.push(`\n━━ ${season.season} ━━`);
-            for (const m of season.modes ?? []) {
-                const included = INCLUDED.has((m.mode ?? '').toLowerCase());
-                const mark     = included ? '✓' : '✗';
-                lines.push(`\n${mark} Mode: ${m.mode ?? '?'}`);
-                for (const [key, val] of Object.entries(m)) {
-                    if (key === 'mode' || key === 'modeId') continue;
-                    lines.push(`   ${key.padEnd(18)} ${val}`);
-                }
+        const lines  = [];
+        let included = 0;
+        for (const m of gameModes) {
+            const id    = m.id ?? '?';
+            const isRed = REDSEC_MODE_IDS.has(id);
+            if (isRed) included++;
+            const mark  = isRed ? '✓' : '✗';
+            lines.push(`\n${mark} Mode: ${id}`);
+            for (const [key, val] of Object.entries(m)) {
+                if (key === 'id') continue;
+                lines.push(`   ${key.padEnd(18)} ${val}`);
             }
         }
 
@@ -61,13 +57,13 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(0xCC0000)
-            .setTitle('🔍  API Debug — Redsec Season/Mode Breakdown')
+            .setTitle('🔍  API Debug — Game Modes Breakdown')
             .addFields(
-                { name: 'EA ID',     value: `\`${eaId}\``,    inline: true },
-                { name: 'Platform',  value: `\`${platform}\``, inline: true },
-                { name: 'Seasons',   value: `\`${seasons.length}\``, inline: true },
+                { name: 'EA ID',    value: `\`${eaId}\``,                              inline: true },
+                { name: 'Platform', value: `\`${platform}\``,                          inline: true },
+                { name: 'Modes',    value: `\`${gameModes.length} (${included} Redsec)\``, inline: true },
             )
-            .setFooter({ text: '✓ = included in stats  ✗ = excluded' })
+            .setFooter({ text: '✓ = counted in Redsec stats  ✗ = excluded' })
             .setTimestamp();
 
         await interaction.editReply({ embeds: [embed] });
