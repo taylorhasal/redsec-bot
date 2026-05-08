@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
 const { postServerLeaderboard } = require('../utils/serverLeaderboard');
+const { recomputeAndRefreshAllTeams } = require('../utils/tournament');
 const fs   = require('fs');
 const path = require('path');
 
@@ -73,6 +74,7 @@ module.exports = {
         savePlayers(players);
 
         await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, finalDisplayName);
+        await recomputeAndRefreshAllTeams(interaction.client, players);
 
         const embed = new EmbedBuilder()
             .setColor(0x00CC44)

@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
+const { recomputeAndRefreshAllTeams } = require('../utils/tournament');
 const fs   = require('fs');
 const path = require('path');
 
@@ -59,6 +60,7 @@ module.exports = {
         savePlayers(players);
 
         await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, record.displayName ?? null);
+        await recomputeAndRefreshAllTeams(interaction.client, players);
 
         const embed = new EmbedBuilder()
             .setColor(0x00CC44)

@@ -5,6 +5,7 @@ const {
 } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
 const { getServerRank } = require('../utils/serverLeaderboard');
+const { recomputeAndRefreshAllTeams } = require('../utils/tournament');
 const { loadRecords } = require('../utils/killRace');
 const fs   = require('fs');
 const path = require('path');
@@ -64,6 +65,7 @@ module.exports = {
         };
         savePlayers(players);
         await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag);
+        await recomputeAndRefreshAllTeams(interaction.client, players);
 
         const records         = loadRecords();
         const killRaceRecord  = records[interaction.user.id] ?? null;

@@ -758,4 +758,5 @@ module.exports = {
     handleAdminCaptainSelect,
     handleAdminTeammateSelect,
     handleAdminNoTeammates,
+    postOrUpdateRoster,
 };

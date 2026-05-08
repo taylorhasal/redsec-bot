@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
 const { postServerLeaderboard } = require('../utils/serverLeaderboard');
+const { recomputeAndRefreshAllTeams } = require('../utils/tournament');
 const fs   = require('fs');
 const path = require('path');
 
@@ -79,6 +80,11 @@ module.exports = {
         }
 
         savePlayers(players);
+
+        // Refresh tournament team indexes (one pass for all touched players)
+        await recomputeAndRefreshAllTeams(interaction.client, players).catch(err =>
+            console.error('[update-all] tournament refresh failed:', err)
+        );
 
         // Refresh leaderboard
         const statsChannel = interaction.guild.channels.cache.find(c => c.name.includes('player-stats'));

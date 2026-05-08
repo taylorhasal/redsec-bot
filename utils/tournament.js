@@ -99,7 +99,46 @@ function newTeamId() {
     return randomUUID();
 }
 
+// Recomputes teamIndex for every team in every tournament from current player
+// records, persists changes, and refreshes any tournament UI (leaderboard +
+// roster cards) for teams whose total changed. Call this after any flow that
+// mutates a player's redsecIndex (verify/update/stats) so tournament displays
+// always reflect the latest values.
+async function recomputeAndRefreshAllTeams(client, players) {
+    // Lazy requires to avoid circular dependency with interactions/registration
+    const { updateLeaderboard }   = require('./leaderboard');
+    const { postOrUpdateRoster }  = require('../interactions/registration');
+
+    const all = loadAll();
+
+    for (const tournament of Object.values(all)) {
+        const changedTeams = [];
+        for (const [teamId, team] of Object.entries(tournament.teams ?? {})) {
+            let newIndex = 0;
+            for (const pid of team.players ?? []) {
+                newIndex += players[pid]?.redsecIndex ?? 0;
+            }
+            newIndex = parseFloat(newIndex.toFixed(1));
+            if (newIndex !== team.teamIndex) {
+                team.teamIndex = newIndex;
+                changedTeams.push(teamId);
+            }
+        }
+        if (changedTeams.length === 0) continue;
+        save(tournament);
+        await updateLeaderboard(client, tournament).catch(err =>
+            console.error('[recomputeAndRefreshAllTeams] leaderboard refresh failed:', err)
+        );
+        for (const teamId of changedTeams) {
+            await postOrUpdateRoster(client, tournament, teamId).catch(err =>
+                console.error('[recomputeAndRefreshAllTeams] roster refresh failed:', err)
+            );
+        }
+    }
+}
+
 module.exports = {
     loadAll, loadById, loadByChannel, save, remove,
     getPlacementPoints, calculateGamePoints, teamScoreSummary, newTeamId,
+    recomputeAndRefreshAllTeams,
 };

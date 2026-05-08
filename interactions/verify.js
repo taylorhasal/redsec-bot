@@ -5,6 +5,7 @@ const {
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
 const { postServerLeaderboard } = require('../utils/serverLeaderboard');
+const { recomputeAndRefreshAllTeams } = require('../utils/tournament');
 const fs   = require('fs');
 const path = require('path');
 
@@ -86,6 +87,7 @@ async function handleVerifyModal(interaction) {
     savePlayers(players);
 
     await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName);
+    await recomputeAndRefreshAllTeams(interaction.client, players);
 
     const nicknamePreview = `[${formatIndex(redsecIndex)}] ${finalDisplayName ?? resolvedName}`;
     const embed = new EmbedBuilder()
