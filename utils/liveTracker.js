@@ -178,7 +178,7 @@ async function runLiveTrackerTick(client) {
 
             let data;
             try {
-                data = await fetchPlayerStats(tracker.eaId, 'ea');
+                data = await fetchPlayerStats(tracker.eaId, tracker.platform ?? 'ea');
             } catch (err) {
                 tracker.errorStrikes = (tracker.errorStrikes ?? 0) + 1;
                 if (tracker.errorStrikes >= ERROR_STRIKES && !tracker.tournamentId) {

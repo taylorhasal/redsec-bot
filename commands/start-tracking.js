@@ -70,10 +70,11 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
 
-        const eaId = players[userId].eaId;
+        const eaId     = players[userId].eaId;
+        const platform = players[userId].platform ?? 'ea';
         let data;
         try {
-            data = await fetchPlayerStats(eaId, 'ea');
+            data = await fetchPlayerStats(eaId, platform);
         } catch (err) {
             return interaction.editReply({ content: `Couldn't take initial snapshot: ${buildErrorMessage(err)}` });
         }
@@ -87,6 +88,7 @@ module.exports = {
 
         trackers[userId] = {
             eaId,
+            platform,
             guildId:          interaction.guild.id,
             snapshot,
             personalTracking: true,
