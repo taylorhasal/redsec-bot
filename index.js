@@ -175,42 +175,12 @@ client.on('messageCreate', message => handleEvidenceMessage(message, client));
 const tempVoiceChannels     = new Set();
 const pendingVoiceCreations = new Set(); // userId — guards against duplicate channel creation
 
-const SKILL_TIERS = ['Phantom', 'Operator', 'Vanguard', 'Sentinel', 'Scout', 'Recruit'];
-function getMemberTier(member) {
-    return SKILL_TIERS.find(t => member.roles.cache.some(r => r.name === t)) ?? null;
-}
-
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const voiceCfg = loadVoiceConfig();
 
-        // User joined ➕ Create Voice — spin up a temp channel (System 1, name-based)
-        if (newState.channelId && newState.channel?.name === '➕ Create Voice') {
-            if (!pendingVoiceCreations.has(newState.member.id)) {
-                pendingVoiceCreations.add(newState.member.id);
-                try {
-                    const member  = newState.member;
-                    const tier    = getMemberTier(member);
-                    const label   = tier ? `[${tier}] ${member.displayName}'s Squad` : `${member.displayName}'s Squad`;
-                    const trigger = newState.channel;
-                    const temp    = await newState.guild.channels.create({
-                        name:                label,
-                        type:                ChannelType.GuildVoice,
-                        parent:              trigger.parentId,
-                        permissionOverwrites: trigger.permissionOverwrites.cache.map(po => ({
-                            id:    po.id,
-                            allow: po.allow,
-                            deny:  po.deny,
-                        })),
-                    });
-                    tempVoiceChannels.add(temp.id);
-                    await member.voice.setChannel(temp).catch(() => {});
-                } finally {
-                    pendingVoiceCreations.delete(newState.member.id);
-                }
-            }
-        // User joined config trigger — spawn Name's Squad (System 2, ID-based, mutually exclusive)
-        } else if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
+        // User joined trigger — spawn Name's Squad
+        if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
             if (!pendingVoiceCreations.has(newState.member.id)) {
                 pendingVoiceCreations.add(newState.member.id);
                 try {
