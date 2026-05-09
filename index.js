@@ -291,7 +291,12 @@ process.on('unhandledRejection', err => console.error('[FATAL] Unhandled rejecti
 process.on('exit', code => process.stderr.write(`[Redsec] Process exiting — code ${code}\n`));
 
 console.log('[Redsec] Logging in...');
-client.login(process.env.TOKEN).catch(err => {
+const loginTimeout = setTimeout(() => {
+    process.stderr.write('[FATAL] Login timed out after 30s — token invalid or Discord unreachable\n');
+    process.exit(1);
+}, 30_000);
+client.login(process.env.TOKEN).then(() => clearTimeout(loginTimeout)).catch(err => {
+    clearTimeout(loginTimeout);
     process.stderr.write(`[FATAL] Login failed: ${err.message}\n`);
     process.exit(1);
 });
