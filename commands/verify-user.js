@@ -84,7 +84,7 @@ module.exports = {
         };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, finalDisplayName);
+        await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, finalDisplayName, platform);
         await recomputeAndRefreshAllTeams(interaction.client, players);
 
         const embed = new EmbedBuilder()

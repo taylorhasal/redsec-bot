@@ -111,7 +111,7 @@ async function handleVerifyModal(interaction) {
     };
     savePlayers(players);
 
-    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName);
+    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName, platform);
     await recomputeAndRefreshAllTeams(interaction.client, players);
 
     const nicknamePreview = `[${formatIndex(redsecIndex)}] ${finalDisplayName ?? resolvedName}`;

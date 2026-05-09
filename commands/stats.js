@@ -64,7 +64,7 @@ module.exports = {
             kd:   parseFloat(s.kd.toFixed(2)),
         };
         savePlayers(players);
-        await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag);
+        await applyPlayerProfile(interaction.guild, interaction.member, eaName, redsecIndex, gamertag, record.platform ?? 'ea');
         await recomputeAndRefreshAllTeams(interaction.client, players);
 
         const records         = loadRecords();

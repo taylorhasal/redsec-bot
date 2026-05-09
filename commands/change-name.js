@@ -35,7 +35,7 @@ module.exports = {
         players[interaction.user.id] = { ...stored, displayName: gamertag };
         savePlayers(players);
 
-        await applyPlayerProfile(interaction.guild, interaction.member, stored.eaId, stored.redsecIndex, gamertag);
+        await applyPlayerProfile(interaction.guild, interaction.member, stored.eaId, stored.redsecIndex, gamertag, stored.platform ?? 'ea');
 
         await interaction.reply({
             embeds: [new EmbedBuilder()
