@@ -42,11 +42,13 @@ async function startTournamentTracking(client, tournament) {
             }
 
             // Brand-new entry — tournament only (player hasn't opted into personal tracking)
-            const data     = await fetchPlayerStats(player.eaId, 'ea').catch(() => null);
+            const platform = player.platform ?? 'ea';
+            const data     = await fetchPlayerStats(player.eaId, platform).catch(() => null);
             const snapshot = data ? extractRedsecSquadSnapshot(data) : null;
 
             trackers[userId] = {
                 eaId:            player.eaId,
+                platform,
                 guildId:         tournament.guildId,
                 snapshot,
                 personalTracking: false,
