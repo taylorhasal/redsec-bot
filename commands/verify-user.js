@@ -29,14 +29,24 @@ module.exports = {
                 .setDescription('Their EA ID')
                 .setRequired(true))
         .addStringOption(option =>
+            option.setName('platform')
+                .setDescription('Their gaming platform')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'PC (EA)', value: 'ea' },
+                    { name: 'PlayStation', value: 'psn' },
+                    { name: 'Xbox', value: 'xbox' },
+                ))
+        .addStringOption(option =>
             option.setName('display_name')
-                .setDescription('Their in-game display name (Steam/Xbox/PS5 gamertag) — optional')
+                .setDescription('Their in-game display name — optional')
                 .setRequired(false)
                 .setMaxLength(32)),
 
     async execute(interaction) {
         const target          = interaction.options.getMember('member');
         const eaId            = interaction.options.getString('ea_id').trim();
+        const platform        = interaction.options.getString('platform') ?? 'ea';
         const rawDisplayName  = interaction.options.getString('display_name');
         const displayNameArg  = rawDisplayName?.trim() || null;
 
@@ -44,7 +54,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(eaId, 'ea');
+            data = await fetchPlayerStats(eaId, platform);
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -65,6 +75,7 @@ module.exports = {
         const finalDisplayName = displayNameArg ?? existing?.displayName ?? null;
         players[target.id] = {
             eaId:       resolvedName,
+            platform,
             kd:         parseFloat(kd.toFixed(2)),
             wins,
             redsecIndex,

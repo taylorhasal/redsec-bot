@@ -18,20 +18,30 @@ function loadPlayers() {
 }
 function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null, 2), 'utf8'); }
 
-// Kept for backward compat — old platform buttons in existing Discord messages still work
-async function handleVerifyPlatformButton(interaction) {
-    const modal = new ModalBuilder()
-        .setCustomId('verify_modal')
-        .setTitle('Enter Your EA ID');
+const PLATFORM_LABELS = {
+    ea:   { title: 'Enter Your EA ID',        label: 'EA ID',          placeholder: 'Found top-right on the Search for Player screen in BF6' },
+    psn:  { title: 'Enter Your PSN Username', label: 'PSN Username',   placeholder: 'Your PlayStation Network username' },
+    xbox: { title: 'Enter Your Xbox Gamertag',label: 'Xbox Gamertag',  placeholder: 'Your Xbox Gamertag' },
+};
 
-    const eaIdInput = new TextInputBuilder()
+const PLATFORM_NAMES = { ea: 'PC (EA)', psn: 'PlayStation', xbox: 'Xbox' };
+
+async function handleVerifyPlatformButton(interaction) {
+    const platform = interaction.customId.split(':')[1] ?? 'ea';
+    const labels   = PLATFORM_LABELS[platform] ?? PLATFORM_LABELS.ea;
+
+    const modal = new ModalBuilder()
+        .setCustomId(`verify_modal:${platform}`)
+        .setTitle(labels.title);
+
+    const usernameInput = new TextInputBuilder()
         .setCustomId('ea_id')
-        .setLabel('Your EA ID')
+        .setLabel(labels.label)
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
         .setMaxLength(64)
-        .setPlaceholder('Found top-right on the Search for Player screen in BF6');
+        .setPlaceholder(labels.placeholder);
 
     const displayNameInput = new TextInputBuilder()
         .setCustomId('display_name')
@@ -39,25 +49,26 @@ async function handleVerifyPlatformButton(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
         .setMaxLength(32)
-        .setPlaceholder('Leave blank to use your EA ID');
+        .setPlaceholder('Leave blank to use your username');
 
     modal.addComponents(
-        new ActionRowBuilder().addComponents(eaIdInput),
+        new ActionRowBuilder().addComponents(usernameInput),
         new ActionRowBuilder().addComponents(displayNameInput),
     );
     await interaction.showModal(modal);
 }
 
 async function handleVerifyModal(interaction) {
-    const eaId        = interaction.fields.getTextInputValue('ea_id').trim();
-    const rawDisplay  = interaction.fields.getTextInputValue('display_name').trim();
-    const displayName = rawDisplay.length > 0 ? rawDisplay : null;
+    const platform     = interaction.customId.split(':')[1] ?? 'ea';
+    const eaId         = interaction.fields.getTextInputValue('ea_id').trim();
+    const rawDisplay   = interaction.fields.getTextInputValue('display_name').trim();
+    const displayName  = rawDisplay.length > 0 ? rawDisplay : null;
 
     await interaction.deferReply({ ephemeral: true });
 
     let data;
     try {
-        data = await fetchPlayerStats(eaId, 'ea');
+        data = await fetchPlayerStats(eaId, platform);
     } catch (err) {
         return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
     }
@@ -73,11 +84,25 @@ async function handleVerifyModal(interaction) {
     const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
     const resolvedName = data.userName ?? eaId;
 
-    const players  = loadPlayers();
-    const existing = players[interaction.user.id];
+    const players = loadPlayers();
+
+    // Duplicate check — same username + platform already registered to a different user
+    const duplicate = Object.entries(players).find(([uid, p]) =>
+        uid !== interaction.user.id &&
+        p.eaId?.toLowerCase() === resolvedName.toLowerCase() &&
+        (p.platform ?? 'ea') === platform
+    );
+    if (duplicate) {
+        return interaction.editReply({
+            embeds: [errorEmbed(`This ${PLATFORM_NAMES[platform] ?? platform} account is already registered to another player. Contact an admin if this is a mistake.`)],
+        });
+    }
+
+    const existing         = players[interaction.user.id];
     const finalDisplayName = displayName ?? existing?.displayName ?? null;
     players[interaction.user.id] = {
         eaId:       resolvedName,
+        platform,
         kd:         parseFloat(kd.toFixed(2)),
         wins,
         redsecIndex,
@@ -94,11 +119,12 @@ async function handleVerifyModal(interaction) {
         .setColor(0x00CC44)
         .setTitle('✅  Verification Complete')
         .addFields(
-            { name: '🪪 EA ID',        value: `\`${resolvedName}\``,             inline: false },
-            { name: '🏷️ Nickname',     value: `\`${nicknamePreview}\``,          inline: false },
-            { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                  inline: true },
-            { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,             inline: true },
-            { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``, inline: true },
+            { name: '🖥️ Platform',     value: PLATFORM_NAMES[platform] ?? platform,  inline: false },
+            { name: '🪪 Username',     value: `\`${resolvedName}\``,                  inline: false },
+            { name: '🏷️ Nickname',     value: `\`${nicknamePreview}\``,               inline: false },
+            { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                       inline: true },
+            { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,                  inline: true },
+            { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``,       inline: true },
         )
         .setFooter({ text: 'Redsec · Verified' })
         .setTimestamp();
@@ -109,7 +135,7 @@ async function handleVerifyModal(interaction) {
     if (generalChat) {
         await generalChat.send(
             `👋 Welcome to **The Operators**, <@${interaction.user.id}>!\n` +
-            `EA ID: \`${resolvedName}\` · Redsec Index: \`${formatIndex(redsecIndex)}\``
+            `${PLATFORM_NAMES[platform] ?? platform}: \`${resolvedName}\` · Redsec Index: \`${formatIndex(redsecIndex)}\``
         ).catch(() => {});
     }
 

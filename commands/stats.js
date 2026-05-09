@@ -39,7 +39,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(record.eaId, 'ea');
+            data = await fetchPlayerStats(record.eaId, record.platform ?? 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
