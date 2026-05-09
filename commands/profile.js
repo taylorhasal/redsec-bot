@@ -61,7 +61,7 @@ module.exports = {
 
         let data;
         try {
-            data = await fetchPlayerStats(record.eaId, 'ea');
+            data = await fetchPlayerStats(record.eaId, record.platform ?? 'ea');
         } catch (err) {
             return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
         }
@@ -79,7 +79,8 @@ module.exports = {
         const records         = loadRecords();
         const killRaceRecord  = records[discordId] ?? null;
         const serverRank      = getServerRank(discordId, players);
-        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord, serverRank)] });
+        const humanPct        = data.humanPrecentage ?? null;
+        await interaction.editReply({ embeds: [buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord, serverRank, humanPct)] });
     },
 };
 
