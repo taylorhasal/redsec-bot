@@ -6,7 +6,6 @@ console.log('[Redsec] GUILD_ID set:', !!process.env.GUILD_ID);
 console.log('[Redsec] DATA_DIR:', process.env.DATA_DIR ?? '(not set, using default)');
 const _dataDir = require('./utils/dataDir');
 console.log('[Redsec] Resolved data path:', _dataDir);
-require('./deploy-commands.js');
 const { Client, GatewayIntentBits, Collection, ChannelType } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
