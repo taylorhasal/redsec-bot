@@ -13,8 +13,7 @@ module.exports = {
                 {
                     name: '👤  Player Commands',
                     value: [
-                        '`/verify` — Link your EA ID, set your display name, and calculate your Redsec Index',
-                        '`/update` — Re-sync your Redsec stats, index, and server roles',
+                        '`/verify` — Link your gaming account, set your display name, and calculate your Redsec Index',
                         '`/change-name <gamertag>` — Update your display name on the leaderboard and roster',
                         '`/stats` — View your live Redsec stats',
                         '`/profile` — Look up another verified player\'s stats',
