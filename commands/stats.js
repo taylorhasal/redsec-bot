@@ -70,11 +70,12 @@ module.exports = {
         const records         = loadRecords();
         const killRaceRecord  = records[interaction.user.id] ?? null;
         const serverRank      = getServerRank(interaction.user.id, players);
-        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, killRaceRecord, serverRank)] });
+        const humanPct        = data.humanPrecentage ?? null;
+        await interaction.editReply({ embeds: [buildStatsEmbed(gamertag ?? eaName, s, redsecIndex, killRaceRecord, serverRank, humanPct)] });
     },
 };
 
-function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null, serverRank = null) {
+function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null, serverRank = null, humanPct = null) {
     const embed = new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
@@ -104,8 +105,9 @@ function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null, ser
             { name: B,             value: B,                        inline: true },
             { name: 'Time Played', value: formatTime(s.timePlayed), inline: true },
 
-            { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: false },
-            { name: 'Server Rank',  value: serverRank ?? '—',         inline: false },
+            { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: true },
+            { name: 'Server Rank',  value: serverRank ?? '—',        inline: true },
+            { name: 'Human %',      value: humanPct ?? '—',           inline: true },
         )
         .setTimestamp();
 
