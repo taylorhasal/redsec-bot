@@ -174,10 +174,36 @@ client.on('messageCreate', message => handleEvidenceMessage(message, client));
 // ── Dynamic voice channels ─────────────────────────────────────────────────────
 const tempVoiceChannels     = new Set();
 const pendingVoiceCreations = new Set(); // userId — guards against duplicate channel creation
+const voiceDeletionTimers   = new Map(); // channelId → timeoutId
+
+const VOICE_DELETE_DELAY = 10 * 60 * 1000; // 10 minutes
+
+function scheduleTempDelete(guild, channelId) {
+    if (voiceDeletionTimers.has(channelId)) return;
+    const timer = setTimeout(async () => {
+        voiceDeletionTimers.delete(channelId);
+        const ch = await guild.channels.fetch(channelId).catch(() => null);
+        if (ch && ch.members.size === 0) {
+            await ch.delete().catch(() => {});
+            tempVoiceChannels.delete(channelId);
+        }
+    }, VOICE_DELETE_DELAY);
+    voiceDeletionTimers.set(channelId, timer);
+}
+
+function cancelTempDelete(channelId) {
+    if (voiceDeletionTimers.has(channelId)) {
+        clearTimeout(voiceDeletionTimers.get(channelId));
+        voiceDeletionTimers.delete(channelId);
+    }
+}
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const voiceCfg = loadVoiceConfig();
+
+        // Cancel pending deletion if someone joins a temp channel
+        if (newState.channelId) cancelTempDelete(newState.channelId);
 
         // User joined trigger — spawn Name's Squad
         if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
@@ -202,8 +228,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             }
         }
 
-        // User left a temp channel — delete it when empty
-        // Fetch channel directly in case it's not in cache (e.g. after bot restart)
+        // User left a temp channel — schedule deletion after 10 min if empty
         if (oldState.channelId) {
             const ch = oldState.channel
                 ?? await newState.guild.channels.fetch(oldState.channelId).catch(() => null);
@@ -212,8 +237,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     ch.parentId === voiceCfg.categoryId &&
                     ch.id !== voiceCfg.triggerChannelId;
                 if (tempVoiceChannels.has(oldState.channelId) || inConfigCategory) {
-                    await ch.delete().catch(() => {});
-                    tempVoiceChannels.delete(oldState.channelId);
+                    scheduleTempDelete(newState.guild, ch.id);
                 }
             }
         }
@@ -271,11 +295,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                 await joinedCh.setName(`SQUAD ${n}`).catch(() => {});
             }
 
-            // User left a channel — delete if empty, or rename SQUAD N → LFG SQUAD N if no longer full
+            // User left a channel — schedule deletion if empty, or rename SQUAD N → LFG SQUAD N if no longer full
             const leftCh = oldState.channel;
             if (isLfgVoice(leftCh)) {
                 if (leftCh.members.size === 0) {
-                    await leftCh.delete().catch(() => {});
+                    scheduleTempDelete(newState.guild, leftCh.id);
                 } else if (SQUAD_NAME_RE.test(leftCh.name) && leftCh.members.size < 4) {
                     const n = leftCh.name.match(SQUAD_NAME_RE)[1];
                     await leftCh.setName(`LFG SQUAD ${n}`).catch(() => {});
