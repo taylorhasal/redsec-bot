@@ -19,7 +19,7 @@ async function applyPlayerProfile(guild, member, eaId, redsecIndex, displayName 
 
     // Nickname: "[+1.2] DisplayName"  (explicit gamertag, or falls back to Discord name)
     const prefix    = `[${indexStr}] `;
-    const nameToUse = (displayName ?? member.user.globalName ?? member.user.username).slice(0, 32 - prefix.length);
+    const nameToUse = (displayName ?? eaId ?? member.user.globalName ?? member.user.username).slice(0, 32 - prefix.length);
     await member.setNickname(`${prefix}${nameToUse}`).catch(() => {});
 
     // Assign @Verified role if it exists in this guild (created by /setup)
