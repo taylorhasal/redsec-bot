@@ -71,7 +71,7 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
     }
 }
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`[Redsec] Online as ${client.user.tag}`);
     console.log(`[Redsec] ${client.commands.size} command(s) loaded: ${[...client.commands.keys()].join(', ')}`);
     setInterval(() => checkTournamentWarnings(client).catch(console.error), 60 * 1000);
