@@ -290,13 +290,27 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 process.on('unhandledRejection', err => console.error('[FATAL] Unhandled rejection:', err));
 process.on('exit', code => process.stderr.write(`[Redsec] Process exiting — code ${code}\n`));
 
-console.log('[Redsec] Logging in...');
-const loginTimeout = setTimeout(() => {
-    process.stderr.write('[FATAL] Login timed out after 30s — token invalid or Discord unreachable\n');
-    process.exit(1);
-}, 30_000);
-client.login(process.env.TOKEN).then(() => clearTimeout(loginTimeout)).catch(err => {
-    clearTimeout(loginTimeout);
-    process.stderr.write(`[FATAL] Login failed: ${err.message}\n`);
-    process.exit(1);
+// Connectivity check before login
+const https = require('https');
+console.log('[Redsec] Checking Discord connectivity...');
+console.log('[Redsec] TOKEN prefix:', process.env.TOKEN?.slice(0, 20) + '...');
+const connectCheck = https.get('https://discord.com/api/v10/gateway', { timeout: 10_000 }, res => {
+    console.log('[Redsec] Discord API reachable — HTTP', res.statusCode);
+    res.resume();
+    doLogin();
 });
+connectCheck.on('timeout', () => { connectCheck.destroy(); console.error('[FATAL] Cannot reach discord.com (timeout)'); process.exit(1); });
+connectCheck.on('error', err => { console.error('[FATAL] Cannot reach discord.com:', err.message); process.exit(1); });
+
+function doLogin() {
+    console.log('[Redsec] Logging in...');
+    const loginTimeout = setTimeout(() => {
+        process.stderr.write('[FATAL] Login timed out after 30s — token invalid or Discord unreachable\n');
+        process.exit(1);
+    }, 30_000);
+    client.login(process.env.TOKEN).then(() => clearTimeout(loginTimeout)).catch(err => {
+        clearTimeout(loginTimeout);
+        process.stderr.write(`[FATAL] Login failed: ${err.message}\n`);
+        process.exit(1);
+    });
+}
