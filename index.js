@@ -172,7 +172,8 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', message => handleEvidenceMessage(message, client));
 
 // ── Dynamic voice channels ─────────────────────────────────────────────────────
-const tempVoiceChannels = new Set();
+const tempVoiceChannels     = new Set();
+const pendingVoiceCreations = new Set(); // userId — guards against duplicate channel creation
 
 const SKILL_TIERS = ['Phantom', 'Operator', 'Vanguard', 'Sentinel', 'Scout', 'Recruit'];
 function getMemberTier(member) {
@@ -181,49 +182,61 @@ function getMemberTier(member) {
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
-        // User joined ➕ Create Voice — spin up a temp channel
-        if (newState.channelId && newState.channel?.name === '➕ Create Voice') {
-            const member  = newState.member;
-            const tier    = getMemberTier(member);
-            const label   = tier ? `[${tier}] ${member.displayName}'s Squad` : `${member.displayName}'s Squad`;
-
-            const trigger = newState.channel;
-            const temp    = await newState.guild.channels.create({
-                name:                label,
-                type:                ChannelType.GuildVoice,
-                parent:              trigger.parentId,
-                permissionOverwrites: trigger.permissionOverwrites.cache.map(po => ({
-                    id:    po.id,
-                    allow: po.allow,
-                    deny:  po.deny,
-                })),
-            });
-
-            tempVoiceChannels.add(temp.id);
-            await member.voice.setChannel(temp).catch(() => {});
-        }
-
-        // User joined "Create New Voice Channel" trigger — spawn Name's Squad
         const voiceCfg = loadVoiceConfig();
-        if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
-            const member  = newState.member;
-            const rawName = member.displayName.replace(/^\[.*?\]\s*/, '');
-            const temp    = await newState.guild.channels.create({
-                name:   `${rawName}'s Squad`,
-                type:   ChannelType.GuildVoice,
-                parent: voiceCfg.categoryId,
-                permissionOverwrites: newState.channel.permissionOverwrites.cache.map(po => ({
-                    id: po.id, allow: po.allow, deny: po.deny,
-                })),
-            });
-            tempVoiceChannels.add(temp.id);
-            await member.voice.setChannel(temp).catch(() => {});
+
+        // User joined ➕ Create Voice — spin up a temp channel (System 1, name-based)
+        if (newState.channelId && newState.channel?.name === '➕ Create Voice') {
+            if (!pendingVoiceCreations.has(newState.member.id)) {
+                pendingVoiceCreations.add(newState.member.id);
+                try {
+                    const member  = newState.member;
+                    const tier    = getMemberTier(member);
+                    const label   = tier ? `[${tier}] ${member.displayName}'s Squad` : `${member.displayName}'s Squad`;
+                    const trigger = newState.channel;
+                    const temp    = await newState.guild.channels.create({
+                        name:                label,
+                        type:                ChannelType.GuildVoice,
+                        parent:              trigger.parentId,
+                        permissionOverwrites: trigger.permissionOverwrites.cache.map(po => ({
+                            id:    po.id,
+                            allow: po.allow,
+                            deny:  po.deny,
+                        })),
+                    });
+                    tempVoiceChannels.add(temp.id);
+                    await member.voice.setChannel(temp).catch(() => {});
+                } finally {
+                    pendingVoiceCreations.delete(newState.member.id);
+                }
+            }
+        // User joined config trigger — spawn Name's Squad (System 2, ID-based, mutually exclusive)
+        } else if (voiceCfg?.triggerChannelId && newState.channelId === voiceCfg.triggerChannelId) {
+            if (!pendingVoiceCreations.has(newState.member.id)) {
+                pendingVoiceCreations.add(newState.member.id);
+                try {
+                    const member  = newState.member;
+                    const rawName = member.displayName.replace(/^\[.*?\]\s*/, '');
+                    const temp    = await newState.guild.channels.create({
+                        name:   `${rawName}'s Squad`,
+                        type:   ChannelType.GuildVoice,
+                        parent: voiceCfg.categoryId,
+                        permissionOverwrites: newState.channel.permissionOverwrites.cache.map(po => ({
+                            id: po.id, allow: po.allow, deny: po.deny,
+                        })),
+                    });
+                    tempVoiceChannels.add(temp.id);
+                    await member.voice.setChannel(temp).catch(() => {});
+                } finally {
+                    pendingVoiceCreations.delete(newState.member.id);
+                }
+            }
         }
 
         // User left a temp channel — delete it when empty
-        // Check both in-memory set (this session) and config category (survives restarts)
+        // Fetch channel directly in case it's not in cache (e.g. after bot restart)
         if (oldState.channelId) {
-            const ch = oldState.channel;
+            const ch = oldState.channel
+                ?? await newState.guild.channels.fetch(oldState.channelId).catch(() => null);
             if (ch && ch.members.size === 0) {
                 const inConfigCategory = voiceCfg?.categoryId &&
                     ch.parentId === voiceCfg.categoryId &&
