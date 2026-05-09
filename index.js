@@ -80,6 +80,7 @@ client.once('clientReady', () => {
 });
 
 client.on('interactionCreate', async interaction => {
+    console.log(`[INTERACTION] type=${interaction.type} user=${interaction.user?.tag} cmd=${interaction.commandName ?? '—'}`);
     try {
         // ── Autocomplete ──────────────────────────────────────────────────────
         if (interaction.isAutocomplete()) {
