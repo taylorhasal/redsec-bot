@@ -1,6 +1,6 @@
 const {
     ModalBuilder, TextInputBuilder, TextInputStyle,
-    ActionRowBuilder, EmbedBuilder,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
 } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
@@ -28,7 +28,18 @@ const PLATFORM_NAMES = { ea: 'PC (EA)', psn: 'PlayStation', xbox: 'Xbox' };
 
 async function handleVerifyPlatformButton(interaction) {
     const platform = interaction.customId.split(':')[1] ?? 'ea';
-    const labels   = PLATFORM_LABELS[platform] ?? PLATFORM_LABELS.ea;
+
+    // "Verify Now" button from setup-verify — show platform picker first
+    if (!PLATFORM_LABELS[platform]) {
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('verify_platform:ea').setLabel('PC (EA)').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('verify_platform:psn').setLabel('PlayStation').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('verify_platform:xbox').setLabel('Xbox').setStyle(ButtonStyle.Secondary),
+        );
+        return interaction.reply({ content: 'Select your platform to continue:', components: [row], ephemeral: true });
+    }
+
+    const labels = PLATFORM_LABELS[platform];
 
     const modal = new ModalBuilder()
         .setCustomId(`verify_modal:${platform}`)

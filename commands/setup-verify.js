@@ -59,9 +59,9 @@ module.exports = {
             .setColor(0xCC0000)
             .setTitle('🛡️  Verify Your Account')
             .setDescription(
-                'Click **Verify Now** below to link your EA ID and unlock the rest of the server.\n\n' +
-                'You\'ll be asked for your **EA ID** (the one you use for Battlefield 6) and an optional **display name** (your gamertag — Steam, Xbox, or PS5).\n\n' +
-                'Once verified, you\'ll get the **@Verified** role, your skill tier, and your Redsec Index — and you\'ll be able to access community channels, tournaments, and 2v2 Kill Race.'
+                'Click **Verify Now** below to link your gaming account and unlock the rest of the server.\n\n' +
+                'You\'ll select your platform (**PC**, **PlayStation**, or **Xbox**), enter your username, and optionally set a display name.\n\n' +
+                'Once verified, you\'ll get the **@Verified** role, your platform role, your skill tier, and your Redsec Index.'
             )
             .setFooter({ text: 'Redsec · Verification' });
 
