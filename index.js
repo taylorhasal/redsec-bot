@@ -288,6 +288,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 });
 
 process.on('unhandledRejection', err => console.error('[FATAL] Unhandled rejection:', err));
+process.on('exit', code => process.stderr.write(`[Redsec] Process exiting — code ${code}\n`));
 
 console.log('[Redsec] Logging in...');
-client.login(process.env.TOKEN).catch(err => console.error('[FATAL] Login failed:', err));
+client.login(process.env.TOKEN).catch(err => {
+    process.stderr.write(`[FATAL] Login failed: ${err.message}\n`);
+    process.exit(1);
+});
