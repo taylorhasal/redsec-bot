@@ -5,7 +5,7 @@ const path = require('path');
 const DATA_DIR     = require('./dataDir');
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 
-const FRAGMENT_TIMEOUT_MS = 15 * 60 * 1000; // 15 min
+const FRAGMENT_TIMEOUT_MS = 45 * 60 * 1000; // 45 min
 
 function loadPlayers() {
     try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
@@ -167,7 +167,7 @@ async function pruneExpiredFragments(client, tournament) {
                 .map(id => `<@${id}>`)
                 .join(', ');
             await trackerCh.send(
-                `❌ **${team?.name ?? teamId}**: fragment expired after 15 min — ` +
+                `❌ **${team?.name ?? teamId}**: fragment expired after 45 min — ` +
                 `detected: ${detected}` +
                 (missing ? ` — no result from: ${missing}` : '') +
                 `. Manual score entry may be needed.`
