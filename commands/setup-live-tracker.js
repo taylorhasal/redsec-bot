@@ -94,15 +94,15 @@ function buildHowToEmbed(trackerChannelId) {
         .addFields(
             {
                 name:  '▶️  How to Start',
-                value: 'Run `/start-tracking` (you must be verified). You\'ll get the 🟢 Live Tracking role while active.',
+                value: 'Join any voice channel in the server. Tracking starts automatically as long as you\'re verified (`/verify`).',
             },
             {
                 name:  '⏹️  How to Stop',
-                value: 'Run `/stop-tracking` — the role is removed and polling ends.',
+                value: 'Disconnect from voice entirely. The 🟢 Live Tracking role is removed automatically.',
             },
             {
                 name:  '⏸️  Auto-Pause',
-                value: 'Tracking auto-stops after **45 minutes** with no detected Redsec Squad games. You\'ll get a DM. Run `/start-tracking` again to resume.',
+                value: 'Tracking auto-stops after **45 minutes** with no detected Redsec Squad games. You\'ll get a DM. Rejoin a voice channel to resume.',
             },
             {
                 name:  '📊  What Gets Tracked',

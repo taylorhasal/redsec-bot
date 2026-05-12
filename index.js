@@ -27,7 +27,7 @@ const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdj
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
 const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
-const { runLiveTrackerTick } = require('./utils/liveTracker');
+const { runLiveTrackerTick, startPersonalTracking, stopPersonalTracking } = require('./utils/liveTracker');
 const { checkKillRaceQueues } = require('./utils/killRace');
 const {
     handleKillRaceStart, handleKillRaceJoin, handleKillRaceLeave,
@@ -200,6 +200,15 @@ function cancelTempDelete(channelId) {
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
+        // Voice-gated live tracking
+        const wasInVoice = !!oldState.channelId;
+        const isInVoice  = !!newState.channelId;
+        if (!wasInVoice && isInVoice) {
+            startPersonalTracking(newState.member.id, newState.guild.id, client).catch(console.error);
+        } else if (wasInVoice && !isInVoice) {
+            stopPersonalTracking(oldState.member.id, oldState.guild.id, client).catch(console.error);
+        }
+
         const voiceCfg = loadVoiceConfig();
 
         // Cancel pending deletion if someone joins a temp channel

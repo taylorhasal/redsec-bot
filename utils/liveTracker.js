@@ -8,6 +8,7 @@ const { handleTournamentDetection, pruneExpiredFragments } = require('./tourname
 
 const TRACKERS_FILE = path.join(DATA_DIR, 'active-trackers.json');
 const CONFIG_FILE   = path.join(DATA_DIR, 'live-tracker-config.json');
+const PLAYERS_FILE  = path.join(DATA_DIR, 'players.json');
 
 const MAX_TRACKERS  = 100;
 const IDLE_STRIKES  = 9;   // 9 ticks * 5 min = 45 min idle → auto-stop
@@ -26,6 +27,11 @@ function saveTrackers(d) { fs.writeFileSync(TRACKERS_FILE, JSON.stringify(d, nul
 function loadConfig() {
     try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
     catch { return null; }
+}
+
+function loadPlayers() {
+    try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
+    catch { return {}; }
 }
 
 function extractRedsecSquadSnapshot(data) {
@@ -141,8 +147,80 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot) {
             { name: '💥 Damage (Human)',   value: `\`${(delta.humanDamage ?? 0).toLocaleString()}\``,   inline: true },
             { name: '💥 Damage (Vehicle)', value: `\`${(delta.vehicleDamage ?? 0).toLocaleString()}\``, inline: true },
         )
-        .setFooter({ text: 'Detected via live tracker · /stop-tracking to disable' })
+        .setFooter({ text: 'Detected via live tracker' })
         .setTimestamp();
+}
+
+async function startPersonalTracking(userId, guildId, client) {
+    const players = loadPlayers();
+    const player  = players[userId];
+    if (!player) return;
+
+    const config = loadConfig();
+    if (!config?.channelId) return;
+
+    const trackers = loadTrackers();
+
+    if (trackers[userId]) {
+        if (trackers[userId].personalTracking === true) return;
+        // Tournament-only entry — reactivate personal tracking without re-fetching snapshot
+        trackers[userId].personalTracking = true;
+        saveTrackers(trackers);
+        try {
+            const guild  = await client.guilds.fetch(guildId);
+            const member = await guild.members.fetch(userId);
+            await addTrackingRole(guild, member);
+        } catch { /* guild/member gone */ }
+        return;
+    }
+
+    if (Object.keys(trackers).length >= MAX_TRACKERS) return;
+
+    const { eaId, platform = 'ea' } = player;
+    let data;
+    try {
+        data = await fetchPlayerStats(eaId, platform);
+    } catch {
+        return;
+    }
+
+    const snapshot = extractRedsecSquadSnapshot(data);
+    if (!snapshot) return;
+
+    trackers[userId] = {
+        eaId,
+        platform,
+        guildId,
+        snapshot,
+        personalTracking: true,
+        startedAt:        new Date().toISOString(),
+        lastDetectedAt:   null,
+        idleStrikes:      0,
+        errorStrikes:     0,
+    };
+    saveTrackers(trackers);
+
+    try {
+        const guild  = await client.guilds.fetch(guildId);
+        const member = await guild.members.fetch(userId);
+        await addTrackingRole(guild, member);
+    } catch { /* guild/member gone */ }
+}
+
+async function stopPersonalTracking(userId, guildId, client) {
+    const trackers = loadTrackers();
+    const tracker  = trackers[userId];
+    if (!tracker || tracker.personalTracking === false) return;
+
+    tracker.personalTracking = false;
+
+    if (tracker.tournamentId) {
+        saveTrackers(trackers);
+    } else {
+        delete trackers[userId];
+        saveTrackers(trackers);
+        await removeTrackingRole(client, guildId, userId);
+    }
 }
 
 let tickInFlight = false;
@@ -185,7 +263,7 @@ async function runLiveTrackerTick(client) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
-                        `🛑 Live tracking for **${tracker.eaId}** stopped after ${ERROR_STRIKES} consecutive API errors. Run \`/start-tracking\` to resume.`);
+                        `🛑 Live tracking for **${tracker.eaId}** stopped after ${ERROR_STRIKES} consecutive API errors. Rejoin a voice channel to resume.`);
                 }
                 continue;
             }
@@ -199,7 +277,7 @@ async function runLiveTrackerTick(client) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
-                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Run \`/start-tracking\` to resume.`);
+                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Rejoin a voice channel to resume.`);
                 }
                 continue;
             }
@@ -263,7 +341,7 @@ async function runLiveTrackerTick(client) {
                     delete trackers[userId];
                     if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
                     await dmUser(client, userId,
-                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Run \`/start-tracking\` to resume.`);
+                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Rejoin a voice channel to resume.`);
                 }
             }
         }
@@ -287,5 +365,6 @@ module.exports = {
     loadTrackers, saveTrackers, loadConfig,
     extractRedsecSquadSnapshot, runLiveTrackerTick,
     addTrackingRole, removeTrackingRole,
+    startPersonalTracking, stopPersonalTracking,
     MAX_TRACKERS, TRACKING_ROLE_NAME,
 };
