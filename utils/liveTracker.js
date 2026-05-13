@@ -193,6 +193,24 @@ async function startPersonalTracking(userId, guildId, client) {
     const trackers = loadTrackers();
     const existing = trackers[userId];
 
+    // Rejoined voice during the post-leave grace window — cancel the pending stop,
+    // resume the same session, and keep the snapshot so a just-finished game isn't lost.
+    if (existing?.pendingStop) {
+        delete existing.pendingStop;
+        delete existing.pendingStopTicks;
+        existing.personalTracking = true;
+        existing.idleStrikes      = 0;
+        existing.errorStrikes     = 0;
+        if (!existing.session) existing.session = freshSession();
+        saveTrackers(trackers);
+        try {
+            const guild  = await client.guilds.fetch(guildId);
+            const member = await guild.members.fetch(userId);
+            await addTrackingRole(guild, member);
+        } catch { /* guild/member gone */ }
+        return;
+    }
+
     if (existing?.tournamentId) {
         // Tournament entry — reactivate personal tracking, keep snapshot for tournament continuity
         if (existing.personalTracking === true) return;
@@ -250,22 +268,22 @@ async function stopPersonalTracking(userId, guildId, client) {
     const tracker  = trackers[userId];
     if (!tracker || tracker.personalTracking === false) return;
 
+    // Don't delete or summarize yet — keep the entry alive for a couple more poll
+    // cycles so a game that finished just before they left still gets detected,
+    // posted to the feed, and counted in the session. runLiveTrackerTick finalizes
+    // it (sends the summary, then deletes) once the grace window has elapsed.
     tracker.personalTracking = false;
-    const ses  = tracker.session;
-    const eaId = tracker.eaId;
+    tracker.pendingStop      = true;
+    tracker.pendingStopTicks = 0;
 
-    if (tracker.tournamentId) {
-        delete tracker.session;
-        saveTrackers(trackers);
-    } else {
-        delete trackers[userId];
-        saveTrackers(trackers);
+    // Drop the "🟢 Live Tracking" role now — they've left voice, so it shouldn't
+    // show as live. The data entry lingers headlessly until finalization.
+    // Tournament entries keep the role (tournament tracking continues regardless).
+    if (!tracker.tournamentId) {
         await removeTrackingRole(client, guildId, userId);
     }
 
-    if (ses && ses.games > 0) {
-        await dmUser(client, userId, { embeds: [buildSessionSummaryEmbed(eaId, ses)] });
-    }
+    saveTrackers(trackers);
 }
 
 let tickInFlight = false;
@@ -296,6 +314,31 @@ async function runLiveTrackerTick(client) {
             const tracker = trackers[userId];
             if (!tracker) continue;
 
+            // ── Grace-period finalization ──────────────────────────────────────
+            // A player who left voice gets up to 2 more poll cycles (≈10–15 min) to
+            // catch a just-finished game; then we send the session summary and tear down.
+            if (tracker.pendingStop) {
+                if ((tracker.pendingStopTicks ?? 0) >= 2) {
+                    const ses  = tracker.session;
+                    const eaId = tracker.eaId;
+                    if (tracker.tournamentId) {
+                        // Tournament entry persists for tournament tracking — just clear the personal bits
+                        delete tracker.pendingStop;
+                        delete tracker.pendingStopTicks;
+                        delete tracker.session;
+                    } else {
+                        if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
+                        delete trackers[userId];
+                    }
+                    if (ses && ses.games > 0) {
+                        await dmUser(client, userId, { embeds: [buildSessionSummaryEmbed(eaId, ses)] });
+                    }
+                    continue;
+                }
+                tracker.pendingStopTicks = (tracker.pendingStopTicks ?? 0) + 1;
+                // fall through — poll one more time to try and catch the last game
+            }
+
             // Spacing — first iteration runs immediately
             await new Promise(r => setTimeout(r, PER_PLAYER_DELAY_MS));
 
@@ -318,7 +361,7 @@ async function runLiveTrackerTick(client) {
             const current = extractRedsecSquadSnapshot(data);
             if (!current) {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
-                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
+                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId && !tracker.pendingStop) {
                     if (memberInVoice(client, tracker.guildId, userId)) {
                         // Still in voice — keep the entry alive; voice-leave is the real cleanup trigger
                         tracker.idleStrikes = 0;
@@ -366,7 +409,9 @@ async function runLiveTrackerTick(client) {
 
                 // Tournament and personal tracking are independent — both can fire for the same game.
                 // personalTracking defaults to true for legacy entries (no field = manually started).
-                const isPersonal   = tracker.personalTracking !== false;
+                // pendingStop entries are in the post-leave grace window — still post + accumulate so
+                // the last game makes it into the feed and the session summary.
+                const isPersonal   = tracker.personalTracking !== false || !!tracker.pendingStop;
                 const isTournament = !!tracker.tournamentId;
 
                 if (isTournament) {
@@ -402,7 +447,7 @@ async function runLiveTrackerTick(client) {
                 tracker.idleStrikes    = 0;
             } else {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
-                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
+                if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId && !tracker.pendingStop) {
                     if (memberInVoice(client, tracker.guildId, userId)) {
                         // Still in voice — re-baseline silently and keep tracking
                         tracker.snapshot    = current;
