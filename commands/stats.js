@@ -79,35 +79,23 @@ function buildStatsEmbed(displayName, s, redsecIndex, killRaceRecord = null, ser
     const embed = new EmbedBuilder()
         .setColor(0xCC0000)
         .setTitle(`${displayName}  —  Redsec`)
-        .setDescription('Duo & Squad  ·  All Seasons')
+        .setDescription(`Duo & Squad  ·  All Seasons  ·  ⏱️ ${formatTime(s.timePlayed)}`)
         .addFields(
-            { name: 'Combat',       value: B, inline: true },
-            { name: B,              value: B, inline: true },
-            { name: 'Match Record', value: B, inline: true },
+            { name: 'K/D Ratio',    value: fmt(s.kd),                inline: true },
+            { name: 'Kills',        value: fmtInt(s.kills),          inline: true },
+            { name: 'Deaths',       value: fmtInt(s.deaths),         inline: true },
 
-            { name: 'K/D Ratio',   value: fmt(s.kd),               inline: true },
-            { name: B,             value: B,                        inline: true },
-            { name: 'Matches',     value: fmtInt(s.matches),        inline: true },
+            { name: 'KPM',          value: fmt(s.kpm),               inline: true },
+            { name: 'Wins',         value: fmtInt(s.wins),           inline: true },
+            { name: 'Losses',       value: fmtInt(s.losses),         inline: true },
 
-            { name: 'Kills',       value: fmtInt(s.kills),          inline: true },
-            { name: B,             value: B,                        inline: true },
-            { name: 'Wins',        value: fmtInt(s.wins),           inline: true },
-
-            { name: 'Deaths',      value: fmtInt(s.deaths),         inline: true },
-            { name: B,             value: B,                        inline: true },
-            { name: 'Losses',      value: fmtInt(s.losses),         inline: true },
-
-            { name: 'KPM',         value: fmt(s.kpm),               inline: true },
-            { name: B,             value: B,                        inline: true },
-            { name: 'Win %',       value: s.winPercent,             inline: true },
-
-            { name: 'Revives',     value: fmtInt(s.revives),        inline: true },
-            { name: B,             value: B,                        inline: true },
-            { name: 'Time Played', value: formatTime(s.timePlayed), inline: true },
+            { name: 'Matches',      value: fmtInt(s.matches),        inline: true },
+            { name: 'Win %',        value: s.winPercent,             inline: true },
+            { name: 'Revives',      value: fmtInt(s.revives),        inline: true },
 
             { name: 'Redsec Index', value: formatIndex(redsecIndex), inline: true },
             { name: 'Server Rank',  value: serverRank ?? '—',        inline: true },
-            { name: 'Human %',      value: humanPct ?? '—',           inline: true },
+            { name: 'Human %',      value: humanPct ?? '—',          inline: true },
         )
         .setTimestamp();
 
