@@ -106,10 +106,6 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
     const placement    = snapshot.lastPlacement;
     const placementStr = placement > 0 ? `#${placement}` : '—';
 
-    let resultStr = '—';
-    if (delta.wins > 0)        resultStr = '✅ Win';
-    else if (delta.losses > 0) resultStr = '❌ Loss';
-
     const gameLengthMin = delta.matches > 0
         ? Math.round((delta.secondsPlayed / delta.matches) / 60)
         : 0;
@@ -123,9 +119,9 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
         : '0%';
 
     const lines = [
-        `<@${userId}>  ${resultStr}  ·  🏆 ${placementStr}  ·  ⏱️ ~${gameLengthMin}m`,
-        `⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  📊 **${kd}** K/D  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
-        `🤝 **${delta.killAssists}** Asst  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots  🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg`,
+        `🏆 ${placementStr}  ⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  🤝 **${delta.killAssists}** Asst  📊 **${kd}** K/D`,
+        `🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
+        `⏱️ ~${gameLengthMin}m  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots`,
     ];
 
     if (matchesDelta > 1) lines.push(`⚠️ ${matchesDelta} matches aggregated`);
