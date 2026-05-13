@@ -197,6 +197,11 @@ async function startPersonalTracking(userId, guildId, client) {
 
     // Rejoined voice during the post-leave grace window — cancel the pending stop,
     // resume the same session, and keep the snapshot so a just-finished game isn't lost.
+    if (existing?.pendingSnapshot) {
+        console.log(`[liveTracker] ${eaId} already has a pending snapshot — waiting for retry`);
+        return;
+    }
+
     if (existing?.pendingStop) {
         console.log(`[liveTracker] ${eaId} rejoined during grace window — resuming session`);
         delete existing.pendingStop;
@@ -236,36 +241,56 @@ async function startPersonalTracking(userId, guildId, client) {
             console.log(`[liveTracker] fetching stats for ${eaId}...`);
             data = await fetchPlayerStats(eaId, platform);
         } catch (err) {
-            console.log(`[liveTracker] API fetch failed for ${eaId}:`, err?.message ?? err);
-            return;
-        }
-        const snapshot = extractRedsecSquadSnapshot(data);
-        if (!snapshot) { console.log(`[liveTracker] no Redsec Squad data for ${eaId} — skipping`); return; }
-
-        if (existing) {
-            existing.snapshot        = snapshot;
-            existing.personalTracking = true;
-            existing.stabilizing     = true;
-            existing.idleStrikes     = 0;
-            existing.errorStrikes    = 0;
-            existing.session         = freshSession();
-        } else {
+            console.log(`[liveTracker] API fetch failed for ${eaId} — creating pending entry for retry`);
             trackers[userId] = {
+                ...(existing ?? {}),
                 eaId,
                 platform,
                 guildId,
-                snapshot,
+                snapshot:         null,
+                pendingSnapshot:  true,
                 personalTracking: true,
-                stabilizing:      true,
+                stabilizing:      false,
                 startedAt:        new Date().toISOString(),
                 lastDetectedAt:   null,
                 idleStrikes:      0,
                 errorStrikes:     0,
                 session:          freshSession(),
             };
+            saveTrackers(trackers);
         }
-        saveTrackers(trackers);
-        console.log(`[liveTracker] tracker entry created for ${eaId} (stabilizing)`);
+
+        if (!data) {
+            // API failed — entry is pending; fall through to assign role
+        } else {
+            const snapshot = extractRedsecSquadSnapshot(data);
+            if (!snapshot) { console.log(`[liveTracker] no Redsec Squad data for ${eaId} — skipping`); return; }
+
+            if (existing) {
+                existing.snapshot         = snapshot;
+                existing.personalTracking = true;
+                existing.stabilizing      = true;
+                existing.idleStrikes      = 0;
+                existing.errorStrikes     = 0;
+                existing.session          = freshSession();
+            } else {
+                trackers[userId] = {
+                    eaId,
+                    platform,
+                    guildId,
+                    snapshot,
+                    personalTracking: true,
+                    stabilizing:      true,
+                    startedAt:        new Date().toISOString(),
+                    lastDetectedAt:   null,
+                    idleStrikes:      0,
+                    errorStrikes:     0,
+                    session:          freshSession(),
+                };
+            }
+            saveTrackers(trackers);
+            console.log(`[liveTracker] tracker entry created for ${eaId} (stabilizing)`);
+        }
     }
 
     try {
@@ -356,6 +381,35 @@ async function runLiveTrackerTick(client) {
 
             // Spacing — first iteration runs immediately
             await new Promise(r => setTimeout(r, PER_PLAYER_DELAY_MS));
+
+            // ── Pending initial snapshot (API was down at VC join time) ─────────
+            if (tracker.pendingSnapshot) {
+                let initData;
+                try {
+                    initData = await fetchPlayerStats(tracker.eaId, tracker.platform ?? 'ea');
+                } catch (err) {
+                    tracker.errorStrikes = (tracker.errorStrikes ?? 0) + 1;
+                    if (tracker.errorStrikes >= ERROR_STRIKES && !tracker.tournamentId) {
+                        delete trackers[userId];
+                        if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
+                        await dmUser(client, userId,
+                            `🛑 Live tracking for **${tracker.eaId}** could not start after ${ERROR_STRIKES} failed attempts. Rejoin a voice channel to try again.`);
+                    }
+                    continue;
+                }
+                const initSnapshot = extractRedsecSquadSnapshot(initData);
+                if (!initSnapshot) {
+                    delete trackers[userId];
+                    if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
+                    continue;
+                }
+                tracker.snapshot     = initSnapshot;
+                tracker.stabilizing  = true;
+                delete tracker.pendingSnapshot;
+                tracker.errorStrikes = 0;
+                console.log(`[liveTracker] pending snapshot resolved for ${tracker.eaId} (stabilizing)`);
+                continue;
+            }
 
             let data;
             try {

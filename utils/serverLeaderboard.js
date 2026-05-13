@@ -4,8 +4,6 @@ const path = require('path');
 
 const DATA_DIR     = require('./dataDir');
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
-const MAX_PLAYERS  = 50;
-
 function loadPlayers() {
     try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, 'utf8')); }
     catch { return {}; }
@@ -28,8 +26,7 @@ function buildServerLeaderboardEmbed() {
     const players = loadPlayers();
     const sorted  = Object.entries(players)
         .filter(([, p]) => typeof p.redsecIndex === 'number' && p.eaId)
-        .sort(([, a], [, b]) => a.redsecIndex - b.redsecIndex)
-        .slice(0, MAX_PLAYERS);
+        .sort(([, a], [, b]) => a.redsecIndex - b.redsecIndex);
 
     if (sorted.length === 0) return null;
 

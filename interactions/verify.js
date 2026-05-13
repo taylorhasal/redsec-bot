@@ -1,6 +1,6 @@
 const {
     ModalBuilder, TextInputBuilder, TextInputStyle,
-    ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
+    ActionRowBuilder, EmbedBuilder,
 } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
@@ -18,62 +18,37 @@ function loadPlayers() {
 }
 function savePlayers(d) { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(d, null, 2), 'utf8'); }
 
-const PLATFORM_LABELS = {
-    ea:   { title: 'Enter Your EA ID',        label: 'EA ID',          placeholder: 'Found top-right on the Search for Player screen in BF6' },
-    psn:  { title: 'Enter Your PSN Username', label: 'PSN Username',   placeholder: 'Your PlayStation Network username' },
-    xbox: { title: 'Enter Your Xbox Gamertag',label: 'Xbox Gamertag',  placeholder: 'Your Xbox Gamertag' },
-};
-
 const PLATFORM_NAMES = { ea: 'PC (EA)', psn: 'PlayStation', xbox: 'Xbox' };
+
+const PLATFORM_PLACEHOLDERS = {
+    ea:   'Your EA ID / username',
+    psn:  'Your PSN username',
+    xbox: 'Your Xbox Gamertag',
+};
 
 async function handleVerifyPlatformButton(interaction) {
     const platform = interaction.customId.split(':')[1] ?? 'ea';
-
-    // "Verify Now" button from setup-verify — show platform picker first
-    if (!PLATFORM_LABELS[platform]) {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('verify_platform:ea').setLabel('PC (EA)').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('verify_platform:psn').setLabel('PlayStation').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('verify_platform:xbox').setLabel('Xbox').setStyle(ButtonStyle.Secondary),
-        );
-        return interaction.reply({ content: 'Select your platform to continue:', components: [row], ephemeral: true });
-    }
-
-    const labels = PLATFORM_LABELS[platform];
-
     const modal = new ModalBuilder()
         .setCustomId(`verify_modal:${platform}`)
-        .setTitle(labels.title);
-
-    const usernameInput = new TextInputBuilder()
-        .setCustomId('ea_id')
-        .setLabel(labels.label)
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(1)
-        .setMaxLength(64)
-        .setPlaceholder(labels.placeholder);
-
-    const displayNameInput = new TextInputBuilder()
-        .setCustomId('display_name')
-        .setLabel('Display Name (optional)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(false)
-        .setMaxLength(32)
-        .setPlaceholder('Leave blank to use your username');
-
-    modal.addComponents(
-        new ActionRowBuilder().addComponents(usernameInput),
-        new ActionRowBuilder().addComponents(displayNameInput),
-    );
+        .setTitle('🛡️  Verify Your Account')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('display_name')
+                    .setLabel('Username / Display Name')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setMinLength(1)
+                    .setMaxLength(64)
+                    .setPlaceholder(PLATFORM_PLACEHOLDERS[platform] ?? 'Your in-game username'),
+            ),
+        );
     await interaction.showModal(modal);
 }
 
 async function handleVerifyModal(interaction) {
-    const platform     = interaction.customId.split(':')[1] ?? 'ea';
-    const eaId         = interaction.fields.getTextInputValue('ea_id').trim();
-    const rawDisplay   = interaction.fields.getTextInputValue('display_name').trim();
-    const displayName  = rawDisplay.length > 0 ? rawDisplay : null;
+    const platform = interaction.customId.split(':')[1] ?? 'ea';
+    const eaId     = interaction.fields.getTextInputValue('display_name').trim();
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -97,7 +72,6 @@ async function handleVerifyModal(interaction) {
 
     const players = loadPlayers();
 
-    // Duplicate check — same username + platform already registered to a different user
     const duplicate = Object.entries(players).find(([uid, p]) =>
         uid !== interaction.user.id &&
         p.eaId?.toLowerCase() === resolvedName.toLowerCase() &&
@@ -109,8 +83,6 @@ async function handleVerifyModal(interaction) {
         });
     }
 
-    const existing         = players[interaction.user.id];
-    const finalDisplayName = displayName ?? existing?.displayName ?? null;
     players[interaction.user.id] = {
         eaId:       resolvedName,
         platform,
@@ -118,14 +90,14 @@ async function handleVerifyModal(interaction) {
         wins,
         redsecIndex,
         verifiedAt: new Date().toISOString(),
-        ...(finalDisplayName ? { displayName: finalDisplayName } : {}),
+        displayName: resolvedName,
     };
     savePlayers(players);
 
-    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, finalDisplayName, platform);
+    await applyPlayerProfile(interaction.guild, interaction.member, resolvedName, redsecIndex, resolvedName, platform);
     await recomputeAndRefreshAllTeams(interaction.client, players);
 
-    const nicknamePreview = `[${formatIndex(redsecIndex)}] ${finalDisplayName ?? resolvedName}`;
+    const nicknamePreview = `[${formatIndex(redsecIndex)}] ${resolvedName}`;
     const embed = new EmbedBuilder()
         .setColor(0x00CC44)
         .setTitle('✅  Verification Complete')
@@ -151,9 +123,95 @@ async function handleVerifyModal(interaction) {
     }
 
     const statsChannel = interaction.guild.channels.cache.find(c => c.name.includes('player-stats'));
-    if (statsChannel) {
-        await postServerLeaderboard(statsChannel).catch(() => {});
+    if (statsChannel) await postServerLeaderboard(statsChannel).catch(() => {});
+}
+
+async function handleAdminVerifyPlatformButton(interaction) {
+    const parts    = interaction.customId.split(':'); // admin_verify_platform:PLATFORM:TARGETID
+    const platform = parts[1] ?? 'ea';
+    const targetId = parts[2];
+    const modal = new ModalBuilder()
+        .setCustomId(`admin_verify_modal:${platform}:${targetId}`)
+        .setTitle('🛡️  Verify Member')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('display_name')
+                    .setLabel('Username / Display Name')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setMinLength(1)
+                    .setMaxLength(64)
+                    .setPlaceholder(PLATFORM_PLACEHOLDERS[platform] ?? 'Their in-game username'),
+            ),
+        );
+    await interaction.showModal(modal);
+}
+
+async function handleAdminVerifyModal(interaction) {
+    const parts    = interaction.customId.split(':'); // admin_verify_modal:PLATFORM:TARGETID
+    const platform = parts[1] ?? 'ea';
+    const targetId = parts[2];
+    const eaId     = interaction.fields.getTextInputValue('display_name').trim();
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const target = await interaction.guild.members.fetch(targetId).catch(() => null);
+    if (!target) {
+        return interaction.editReply({ embeds: [errorEmbed('Could not find that member in this server.')] });
     }
+
+    let data;
+    try {
+        data = await fetchPlayerStats(eaId, platform);
+    } catch (err) {
+        return interaction.editReply({ embeds: [errorEmbed(buildErrorMessage(err))] });
+    }
+
+    const redsec = extractRedsecStats(data);
+    if (!redsec) {
+        return interaction.editReply({
+            embeds: [errorEmbed(`No Redsec combat history found for \`${eaId}\`. They need at least one Redsec match.`)],
+        });
+    }
+
+    const { kpm, kd, wins } = redsec;
+    const redsecIndex  = parseFloat(((0.40 - kpm) * 25).toFixed(1));
+    const resolvedName = data.userName ?? eaId;
+
+    const players = loadPlayers();
+    players[target.id] = {
+        eaId:        resolvedName,
+        platform,
+        kd:          parseFloat(kd.toFixed(2)),
+        wins,
+        redsecIndex,
+        verifiedAt:  new Date().toISOString(),
+        displayName: resolvedName,
+    };
+    savePlayers(players);
+
+    await applyPlayerProfile(interaction.guild, target, resolvedName, redsecIndex, resolvedName, platform);
+    await recomputeAndRefreshAllTeams(interaction.client, players);
+
+    const embed = new EmbedBuilder()
+        .setColor(0x00CC44)
+        .setTitle('✅  Member Verified')
+        .addFields(
+            { name: '👤 Discord',      value: `<@${target.id}>`,                    inline: false },
+            { name: '🖥️ Platform',     value: PLATFORM_NAMES[platform] ?? platform, inline: false },
+            { name: '🪪 Username',     value: `\`${resolvedName}\``,                inline: true },
+            { name: '⚔️ K/D Ratio',    value: `\`${fmt(kd)}\``,                    inline: true },
+            { name: '🏆 Total Wins',   value: `\`${fmtInt(wins)}\``,               inline: true },
+            { name: '📊 Redsec Index', value: `\`${formatIndex(redsecIndex)}\``,    inline: true },
+        )
+        .setFooter({ text: `Verified by ${interaction.user.tag}` })
+        .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+    const statsChannel = interaction.guild.channels.cache.find(c => c.name.includes('player-stats'));
+    if (statsChannel) await postServerLeaderboard(statsChannel).catch(() => {});
 }
 
 function errorEmbed(description) {
@@ -164,4 +222,4 @@ function errorEmbed(description) {
         .setTimestamp();
 }
 
-module.exports = { handleVerifyPlatformButton, handleVerifyModal };
+module.exports = { handleVerifyPlatformButton, handleVerifyModal, handleAdminVerifyPlatformButton, handleAdminVerifyModal };

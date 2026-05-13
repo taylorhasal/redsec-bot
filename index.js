@@ -25,7 +25,7 @@ const {
 const { handleSubmitScoreButton, handleScoreModal, handleEvidenceMessage, handleManageScoresButton, handleSubmitProofButton, handleScoreEditButton, handleScoreDeleteButton } = require('./interactions/scoreSubmission');
 const { handleAuditApprove, handleAuditReject, handleAuditAdjust, handleAuditAdjustModal, handleScoreApprove, handleScoreReject } = require('./interactions/audit');
 const { handleRemoveTeamButton, handleStartTournamentButton } = require('./interactions/tournamentAdmin');
-const { handleVerifyPlatformButton, handleVerifyModal } = require('./interactions/verify');
+const { handleVerifyPlatformButton, handleVerifyModal, handleAdminVerifyPlatformButton, handleAdminVerifyModal } = require('./interactions/verify');
 const { checkTournamentWarnings } = require('./utils/warnings');
 const { runLiveTrackerTick, startPersonalTracking, stopPersonalTracking } = require('./utils/liveTracker');
 const { checkKillRaceQueues } = require('./utils/killRace');
@@ -121,7 +121,8 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId.startsWith('audit_adjust:') && !interaction.customId.includes('modal')) {
                 return handleAuditAdjust(interaction);
             }
-            if (interaction.customId.startsWith('verify_platform:')) return handleVerifyPlatformButton(interaction);
+            if (interaction.customId.startsWith('verify_platform:'))       return handleVerifyPlatformButton(interaction);
+            if (interaction.customId.startsWith('admin_verify_platform:')) return handleAdminVerifyPlatformButton(interaction);
 
             // 2v2 Kill Race (more-specific prefixes checked before shorter ones)
             if (interaction.customId === 'killrace_start')                  return handleKillRaceStart(interaction);
@@ -139,6 +140,7 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'score_modal')                 return handleScoreModal(interaction, client);
             if (interaction.customId.startsWith('audit_adjust_modal:')) return handleAuditAdjustModal(interaction);
             if (interaction.customId.startsWith('verify_modal'))        return handleVerifyModal(interaction);
+            if (interaction.customId.startsWith('admin_verify_modal:')) return handleAdminVerifyModal(interaction);
             return;
         }
 
