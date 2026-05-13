@@ -120,8 +120,8 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
 
     const lines = [
         `🏆 ${placementStr}  ⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  🤝 **${delta.killAssists}** Asst  📊 **${kd}** K/D`,
-        `🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
-        `⏱️ ~${gameLengthMin}m  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots`,
+        `💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
+        `🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  ⏱️ ~${gameLengthMin}m  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots`,
     ];
 
     if (matchesDelta > 1) lines.push(`⚠️ ${matchesDelta} matches aggregated`);
