@@ -135,20 +135,22 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
 }
 
 async function startPersonalTracking(userId, guildId, client) {
+    console.log(`[liveTracker] startPersonalTracking called — userId=${userId} guildId=${guildId}`);
     const players = loadPlayers();
     const player  = players[userId];
-    if (!player) return;
+    if (!player) { console.log(`[liveTracker] user ${userId} not verified — skipping`); return; }
 
     const config = loadConfig();
-    if (!config?.channelId) return;
+    if (!config?.channelId) { console.log('[liveTracker] no tracker config — skipping'); return; }
 
     const { eaId, platform = 'ea' } = player;
+    console.log(`[liveTracker] verified as ${eaId} (${platform})`);
     const trackers = loadTrackers();
     const existing = trackers[userId];
 
     if (existing?.tournamentId) {
         // Tournament entry — reactivate personal tracking, keep snapshot for tournament continuity
-        if (existing.personalTracking === true) return;
+        if (existing.personalTracking === true) { console.log('[liveTracker] already tracking — skipping'); return; }
         existing.personalTracking = true;
         saveTrackers(trackers);
     } else {
@@ -157,12 +159,17 @@ async function startPersonalTracking(userId, guildId, client) {
         // immediately comparing on the next tick would fire for games played before VC join.
         // The stabilizing flag causes the first tick to re-baseline silently instead of posting.
         let data;
-        try { data = await fetchPlayerStats(eaId, platform); }
-        catch { return; }
+        try {
+            console.log(`[liveTracker] fetching stats for ${eaId}...`);
+            data = await fetchPlayerStats(eaId, platform);
+        } catch (err) {
+            console.log(`[liveTracker] API fetch failed for ${eaId}:`, err?.message ?? err);
+            return;
+        }
         const snapshot = extractRedsecSquadSnapshot(data);
-        if (!snapshot) return;
+        if (!snapshot) { console.log(`[liveTracker] no Redsec Squad data for ${eaId} — skipping`); return; }
 
-        if (Object.keys(trackers).length >= MAX_TRACKERS && !existing) return;
+        if (Object.keys(trackers).length >= MAX_TRACKERS && !existing) { console.log('[liveTracker] at capacity — skipping'); return; }
 
         if (existing) {
             existing.snapshot        = snapshot;
@@ -185,13 +192,17 @@ async function startPersonalTracking(userId, guildId, client) {
             };
         }
         saveTrackers(trackers);
+        console.log(`[liveTracker] tracker entry created for ${eaId} (stabilizing)`);
     }
 
     try {
         const guild  = await client.guilds.fetch(guildId);
         const member = await guild.members.fetch(userId);
         await addTrackingRole(guild, member);
-    } catch { /* guild/member gone */ }
+        console.log(`[liveTracker] tracking role assigned to ${eaId}`);
+    } catch (err) {
+        console.error('[liveTracker] addTrackingRole failed:', err);
+    }
 }
 
 async function stopPersonalTracking(userId, guildId, client) {
