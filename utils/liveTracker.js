@@ -122,7 +122,6 @@ async function dmUser(client, userId, content) {
 
 function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
     const won = delta.wins > 0;
-    // Placement is the most recent game only — meaningless when several games are aggregated
     const placementStr = matchesDelta > 1
         ? '—'
         : (snapshot.lastPlacement > 0 ? `#${snapshot.lastPlacement}` : '—');
@@ -139,21 +138,29 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
         ? ((delta.headshotKills / delta.kills) * 100).toFixed(0) + '%'
         : '0%';
 
-    const lines = [
-        `<@${userId}>`,
-        `🏆 ${placementStr}  ⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  🤝 **${delta.killAssists}** Asst  📊 **${kd}** K/D`,
-        `💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
-        `🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  ⏱️ ~${gameLengthMin}m  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots`,
-    ];
-
-    if (matchesDelta > 1) lines.push(`⚠️ ${matchesDelta} matches aggregated`);
-
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
         .setColor(won ? 0x00CC44 : 0xCC0000)
         .setTitle(won ? `👑  ${eaId}  ·  WIN` : `🎮  ${eaId}`)
-        .setDescription(lines.join('\n'))
+        .addFields(
+            { name: '⚔️ Kills',     value: String(delta.kills),                          inline: true },
+            { name: '💀 Deaths',    value: String(delta.deaths),                         inline: true },
+            { name: '🤝 Assists',   value: String(delta.killAssists),                    inline: true },
+            { name: '📊 K/D',       value: kd,                                           inline: true },
+            { name: '🔥 KPM',       value: kpm,                                          inline: true },
+            { name: '🎯 HS',        value: `${delta.headshotKills} (${hsPct})`,          inline: true },
+            { name: '💥 Damage',    value: (delta.humanDamage ?? 0).toLocaleString(),    inline: true },
+            { name: '🏅 Score',     value: (delta.scoreIn ?? 0).toLocaleString(),        inline: true },
+            { name: '🏆 Placement', value: placementStr,                                 inline: true },
+            { name: '⏱️ Time',      value: `~${gameLengthMin}m`,                         inline: true },
+            { name: '🚑 Revives',   value: String(delta.revives),                        inline: true },
+            { name: '👁️ Spots',     value: String(delta.spots),                          inline: true },
+        )
         .setFooter({ text: 'Detected via live tracker' })
         .setTimestamp();
+
+    if (matchesDelta > 1) embed.setDescription(`⚠️ ${matchesDelta} matches aggregated`);
+
+    return embed;
 }
 
 function buildSessionSummaryEmbed(eaId, ses) {
