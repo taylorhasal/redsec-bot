@@ -1,6 +1,6 @@
 const {
     ModalBuilder, TextInputBuilder, TextInputStyle,
-    ActionRowBuilder, EmbedBuilder,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
 } = require('discord.js');
 const { fetchPlayerStats, extractRedsecStats, buildErrorMessage, fmt, fmtInt } = require('../utils/api');
 const { applyPlayerProfile, formatIndex } = require('../utils/profile');
@@ -28,6 +28,16 @@ const PLATFORM_PLACEHOLDERS = {
 
 async function handleVerifyPlatformButton(interaction) {
     const platform = interaction.customId.split(':')[1] ?? 'ea';
+
+    if (!PLATFORM_PLACEHOLDERS[platform]) {
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('verify_platform:ea').setLabel('PC (EA)').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('verify_platform:psn').setLabel('PlayStation').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('verify_platform:xbox').setLabel('Xbox').setStyle(ButtonStyle.Secondary),
+        );
+        return interaction.reply({ content: 'Select your platform to continue:', components: [row], ephemeral: true });
+    }
+
     const modal = new ModalBuilder()
         .setCustomId(`verify_modal:${platform}`)
         .setTitle('🛡️  Verify Your Account')

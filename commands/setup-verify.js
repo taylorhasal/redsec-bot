@@ -60,7 +60,7 @@ module.exports = {
             .setTitle('🛡️  Verify Your Account')
             .setDescription(
                 'Click **Verify Now** below to link your gaming account and unlock the rest of the server.\n\n' +
-                'You\'ll select your platform (**PC**, **PlayStation**, or **Xbox**), enter your username, and optionally set a display name.\n\n' +
+                'Select your platform (**PC**, **PlayStation**, or **Xbox**), then enter your in-game username.\n\n' +
                 'Once verified, you\'ll get the **@Verified** role, your platform role, your skill tier, and your Redsec Index.'
             )
             .setFooter({ text: 'Redsec · Verification' });
