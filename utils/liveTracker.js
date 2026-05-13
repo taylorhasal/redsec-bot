@@ -198,6 +198,7 @@ async function startPersonalTracking(userId, guildId, client) {
     // Rejoined voice during the post-leave grace window — cancel the pending stop,
     // resume the same session, and keep the snapshot so a just-finished game isn't lost.
     if (existing?.pendingStop) {
+        console.log(`[liveTracker] ${eaId} rejoined during grace window — resuming session`);
         delete existing.pendingStop;
         delete existing.pendingStopTicks;
         existing.personalTracking = true;
@@ -209,7 +210,10 @@ async function startPersonalTracking(userId, guildId, client) {
             const guild  = await client.guilds.fetch(guildId);
             const member = await guild.members.fetch(userId);
             await addTrackingRole(guild, member);
-        } catch { /* guild/member gone */ }
+            console.log(`[liveTracker] tracking role re-assigned to ${eaId}`);
+        } catch (err) {
+            console.error('[liveTracker] addTrackingRole failed:', err);
+        }
         return;
     }
 
