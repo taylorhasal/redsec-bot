@@ -102,13 +102,13 @@ async function dmUser(client, userId, content) {
     } catch { /* DMs disabled — skip */ }
 }
 
-function buildDetectionEmbed(eaId, userId, delta, snapshot) {
+function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
     const placement    = snapshot.lastPlacement;
     const placementStr = placement > 0 ? `#${placement}` : '—';
 
     let resultStr = '—';
-    if (delta.wins > 0)        resultStr = '🏆 Win';
-    else if (delta.losses > 0) resultStr = 'Loss';
+    if (delta.wins > 0)        resultStr = '✅ Win';
+    else if (delta.losses > 0) resultStr = '❌ Loss';
 
     const gameLengthMin = delta.matches > 0
         ? Math.round((delta.secondsPlayed / delta.matches) / 60)
@@ -122,31 +122,18 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot) {
         ? ((delta.headshotKills / delta.kills) * 100).toFixed(0) + '%'
         : '0%';
 
+    const lines = [
+        `<@${userId}>  ${resultStr}  ·  🏆 ${placementStr}  ·  ⏱️ ~${gameLengthMin}m`,
+        `⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  📊 **${kd}** K/D  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
+        `🤝 **${delta.killAssists}** Asst  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots  🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg`,
+    ];
+
+    if (matchesDelta > 1) lines.push(`⚠️ ${matchesDelta} matches aggregated`);
+
     return new EmbedBuilder()
         .setColor(0xCC0000)
-        .setTitle(`🎮  ${eaId}  ·  Redsec Squad`)
-        .setDescription(`<@${userId}>`)
-        .addFields(
-            { name: '✅ Result',     value: `\`${resultStr}\``,                           inline: true },
-            { name: '🏆 Placement',  value: `\`${placementStr}\``,                        inline: true },
-            { name: '⏱️ Length',     value: `\`~${gameLengthMin}m\``,                     inline: true },
-
-            { name: '⚔️ Kills',      value: `\`${delta.kills}\``,                         inline: true },
-            { name: '💀 Deaths',     value: `\`${delta.deaths}\``,                        inline: true },
-            { name: '📊 K/D',        value: `\`${kd}\``,                                  inline: true },
-
-            { name: '🔥 KPM',        value: `\`${kpm}\``,                                 inline: true },
-            { name: '🎯 Headshots',  value: `\`${delta.headshotKills} (${hsPct})\``,      inline: true },
-            { name: '🤝 Assists',    value: `\`${delta.killAssists}\``,                   inline: true },
-
-            { name: '🏅 Score',      value: `\`${delta.scoreIn}\``,                       inline: true },
-            { name: '🚑 Revives',    value: `\`${delta.revives}\``,                       inline: true },
-            { name: '👁️ Spots',      value: `\`${delta.spots}\``,                         inline: true },
-
-            { name: '🚗 Vehicle Kills',    value: `\`${delta.vehicleKills}\``,                       inline: true },
-            { name: '💥 Damage (Human)',   value: `\`${(delta.humanDamage ?? 0).toLocaleString()}\``,   inline: true },
-            { name: '💥 Damage (Vehicle)', value: `\`${(delta.vehicleDamage ?? 0).toLocaleString()}\``, inline: true },
-        )
+        .setTitle(`🎮  ${eaId}`)
+        .setDescription(lines.join('\n'))
         .setFooter({ text: 'Detected via live tracker' })
         .setTimestamp();
 }
@@ -159,46 +146,50 @@ async function startPersonalTracking(userId, guildId, client) {
     const config = loadConfig();
     if (!config?.channelId) return;
 
-    const trackers = loadTrackers();
-
-    if (trackers[userId]) {
-        if (trackers[userId].personalTracking === true) return;
-        // Tournament-only entry — reactivate personal tracking without re-fetching snapshot
-        trackers[userId].personalTracking = true;
-        saveTrackers(trackers);
-        try {
-            const guild  = await client.guilds.fetch(guildId);
-            const member = await guild.members.fetch(userId);
-            await addTrackingRole(guild, member);
-        } catch { /* guild/member gone */ }
-        return;
-    }
-
-    if (Object.keys(trackers).length >= MAX_TRACKERS) return;
-
     const { eaId, platform = 'ea' } = player;
-    let data;
-    try {
-        data = await fetchPlayerStats(eaId, platform);
-    } catch {
-        return;
+    const trackers = loadTrackers();
+    const existing = trackers[userId];
+
+    if (existing?.tournamentId) {
+        // Tournament entry — reactivate personal tracking, keep snapshot for tournament continuity
+        if (existing.personalTracking === true) return;
+        existing.personalTracking = true;
+        saveTrackers(trackers);
+    } else {
+        // New entry or stale personal entry — always take a fresh snapshot.
+        // The community API can lag by several minutes; taking the snapshot here and then
+        // immediately comparing on the next tick would fire for games played before VC join.
+        // The stabilizing flag causes the first tick to re-baseline silently instead of posting.
+        let data;
+        try { data = await fetchPlayerStats(eaId, platform); }
+        catch { return; }
+        const snapshot = extractRedsecSquadSnapshot(data);
+        if (!snapshot) return;
+
+        if (Object.keys(trackers).length >= MAX_TRACKERS && !existing) return;
+
+        if (existing) {
+            existing.snapshot        = snapshot;
+            existing.personalTracking = true;
+            existing.stabilizing     = true;
+            existing.idleStrikes     = 0;
+            existing.errorStrikes    = 0;
+        } else {
+            trackers[userId] = {
+                eaId,
+                platform,
+                guildId,
+                snapshot,
+                personalTracking: true,
+                stabilizing:      true,
+                startedAt:        new Date().toISOString(),
+                lastDetectedAt:   null,
+                idleStrikes:      0,
+                errorStrikes:     0,
+            };
+        }
+        saveTrackers(trackers);
     }
-
-    const snapshot = extractRedsecSquadSnapshot(data);
-    if (!snapshot) return;
-
-    trackers[userId] = {
-        eaId,
-        platform,
-        guildId,
-        snapshot,
-        personalTracking: true,
-        startedAt:        new Date().toISOString(),
-        lastDetectedAt:   null,
-        idleStrikes:      0,
-        errorStrikes:     0,
-    };
-    saveTrackers(trackers);
 
     try {
         const guild  = await client.guilds.fetch(guildId);
@@ -282,6 +273,14 @@ async function runLiveTrackerTick(client) {
                 continue;
             }
 
+            // On the first tick after VC join, re-baseline silently to absorb API lag.
+            // The snapshot taken at join time may not reflect games finished just before joining.
+            if (tracker.stabilizing) {
+                tracker.snapshot   = current;
+                delete tracker.stabilizing;
+                continue;
+            }
+
             const prev = tracker.snapshot;
             const matchesDelta = current.matches - (prev?.matches ?? current.matches);
 
@@ -307,14 +306,7 @@ async function runLiveTrackerTick(client) {
                     vehicleKills:          current.vehicleKills  - (prev.vehicleKills  ?? current.vehicleKills),
                 };
 
-                const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current);
-                if (matchesDelta > 1) {
-                    embed.addFields({
-                        name:   '⚠️ Multi-match detection',
-                        value:  `${matchesDelta} matches were played in this 5-min window — stats above are aggregated.`,
-                        inline: false,
-                    });
-                }
+                const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current, matchesDelta);
 
                 // Tournament and personal tracking are independent — both can fire for the same game.
                 // personalTracking defaults to true for legacy entries (no field = manually started).
