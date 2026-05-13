@@ -38,25 +38,43 @@ function extractRedsecSquadSnapshot(data) {
     const m = (data?.gameModes ?? []).find(g => g.id === 'gm_brsquad');
     if (!m) return null;
     return {
-        kills:                 m.kills                 ?? 0,
-        deaths:                m.deaths                ?? 0,
-        wins:                  m.wins                  ?? 0,
-        losses:                m.losses                ?? 0,
-        matches:               m.matches               ?? 0,
-        killAssists:           m.killAssists           ?? 0,
-        headshotKills:         m.headshotKills         ?? 0,
-        revives:               m.revives               ?? 0,
-        spots:                 m.spots                 ?? 0,
-        objectivesCaptured:    m.objectivesCaptured    ?? 0,
-        objectivesDefended:    m.objectivesDefended    ?? 0,
-        objectivesDestroyed:   m.objectivesDestroyed   ?? 0,
-        vehiclesDestroyedWith: m.vehiclesDestroyedWith ?? 0,
-        scoreIn:               m.scoreIn               ?? 0,
-        secondsPlayed:         m.secondsPlayed         ?? 0,
-        lastPlacement:         data.lastPlacement      ?? 0,
-        humanDamage:           data.devidedDamage?.human       ?? 0,
-        vehicleDamage:         data.devidedDamage?.withVehicle ?? 0,
-        vehicleKills:          data.dividedKills?.vehicle      ?? 0,
+        kills:         m.kills         ?? 0,
+        deaths:        m.deaths        ?? 0,
+        wins:          m.wins          ?? 0,
+        losses:        m.losses        ?? 0,
+        matches:       m.matches       ?? 0,
+        killAssists:   m.killAssists   ?? 0,
+        headshotKills: m.headshotKills ?? 0,
+        revives:       m.revives       ?? 0,
+        spots:         m.spots         ?? 0,
+        scoreIn:       m.scoreIn       ?? 0,
+        secondsPlayed: m.secondsPlayed ?? 0,
+        lastPlacement: data.lastPlacement            ?? 0,
+        humanDamage:   data.devidedDamage?.human       ?? 0,
+        vehicleDamage: data.devidedDamage?.withVehicle ?? 0,
+        vehicleKills:  data.dividedKills?.vehicle      ?? 0,
+    };
+}
+
+// True if the member is currently connected to a voice channel (cache lookup —
+// voice states are populated on connect, so this is reliable even after a restart).
+function memberInVoice(client, guildId, userId) {
+    const m = client.guilds.cache.get(guildId)?.members.cache.get(userId);
+    return !!m?.voice?.channelId;
+}
+
+function freshSession() {
+    return {
+        startedAt:     new Date().toISOString(),
+        games:         0,
+        kills:         0,
+        deaths:        0,
+        assists:       0,
+        headshots:     0,
+        revives:       0,
+        score:         0,
+        wins:          0,
+        bestPlacement: null,
     };
 }
 
@@ -103,8 +121,11 @@ async function dmUser(client, userId, content) {
 }
 
 function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
-    const placement    = snapshot.lastPlacement;
-    const placementStr = placement > 0 ? `#${placement}` : '—';
+    const won = delta.wins > 0;
+    // Placement is the most recent game only — meaningless when several games are aggregated
+    const placementStr = matchesDelta > 1
+        ? '—'
+        : (snapshot.lastPlacement > 0 ? `#${snapshot.lastPlacement}` : '—');
 
     const gameLengthMin = delta.matches > 0
         ? Math.round((delta.secondsPlayed / delta.matches) / 60)
@@ -119,6 +140,7 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
         : '0%';
 
     const lines = [
+        `<@${userId}>`,
         `🏆 ${placementStr}  ⚔️ **${delta.kills}**K  💀 **${delta.deaths}**D  🤝 **${delta.killAssists}** Asst  📊 **${kd}** K/D`,
         `💥 **${(delta.humanDamage ?? 0).toLocaleString()}** / **${(delta.vehicleDamage ?? 0).toLocaleString()}** Dmg  🔥 **${kpm}** KPM  🎯 **${delta.headshotKills}** HS (${hsPct})`,
         `🏅 **${(delta.scoreIn ?? 0).toLocaleString()}** Score  ⏱️ ~${gameLengthMin}m  🚑 **${delta.revives}** Rev  👁️ **${delta.spots}** Spots`,
@@ -127,10 +149,35 @@ function buildDetectionEmbed(eaId, userId, delta, snapshot, matchesDelta = 1) {
     if (matchesDelta > 1) lines.push(`⚠️ ${matchesDelta} matches aggregated`);
 
     return new EmbedBuilder()
-        .setColor(0xCC0000)
-        .setTitle(`🎮  ${eaId}`)
+        .setColor(won ? 0x00CC44 : 0xCC0000)
+        .setTitle(won ? `👑  ${eaId}  ·  WIN` : `🎮  ${eaId}`)
         .setDescription(lines.join('\n'))
         .setFooter({ text: 'Detected via live tracker' })
+        .setTimestamp();
+}
+
+function buildSessionSummaryEmbed(eaId, ses) {
+    const durMin = Math.max(1, Math.round((Date.now() - new Date(ses.startedAt).getTime()) / 60000));
+    const kd     = ses.deaths > 0 ? (ses.kills / ses.deaths).toFixed(2) : `${ses.kills}.00`;
+    const best   = ses.bestPlacement != null && ses.bestPlacement > 0 ? `#${ses.bestPlacement}` : '—';
+    const won    = ses.wins > 0;
+
+    return new EmbedBuilder()
+        .setColor(won ? 0x00CC44 : 0xCC0000)
+        .setTitle(`🎮  Live Tracking Session — ${eaId}`)
+        .setDescription(`You played **${ses.games}** Redsec Squad game${ses.games === 1 ? '' : 's'} over **${durMin} min** of tracking.`)
+        .addFields(
+            { name: '🏆 Wins',        value: `\`${ses.wins}\``,                   inline: true },
+            { name: '⚔️ Kills',       value: `\`${ses.kills}\``,                  inline: true },
+            { name: '💀 Deaths',      value: `\`${ses.deaths}\``,                 inline: true },
+            { name: '📊 K/D',         value: `\`${kd}\``,                         inline: true },
+            { name: '🤝 Assists',     value: `\`${ses.assists}\``,                inline: true },
+            { name: '🎯 Headshots',   value: `\`${ses.headshots}\``,              inline: true },
+            { name: '🏅 Score',       value: `\`${ses.score.toLocaleString()}\``, inline: true },
+            { name: '🚑 Revives',     value: `\`${ses.revives}\``,                inline: true },
+            { name: '🥇 Best Place',  value: `\`${best}\``,                       inline: true },
+        )
+        .setFooter({ text: 'Hop back in voice to keep tracking · /stats' })
         .setTimestamp();
 }
 
@@ -150,8 +197,12 @@ async function startPersonalTracking(userId, guildId, client) {
         // Tournament entry — reactivate personal tracking, keep snapshot for tournament continuity
         if (existing.personalTracking === true) return;
         existing.personalTracking = true;
+        existing.session          = freshSession();
         saveTrackers(trackers);
     } else {
+        // Bail before burning an API call if we're at capacity with no existing slot to reuse
+        if (!existing && Object.keys(trackers).length >= MAX_TRACKERS) return;
+
         // New entry or stale personal entry — always take a fresh snapshot.
         // The community API can lag by several minutes; taking the snapshot here and then
         // immediately comparing on the next tick would fire for games played before VC join.
@@ -162,14 +213,13 @@ async function startPersonalTracking(userId, guildId, client) {
         const snapshot = extractRedsecSquadSnapshot(data);
         if (!snapshot) return;
 
-        if (Object.keys(trackers).length >= MAX_TRACKERS && !existing) return;
-
         if (existing) {
             existing.snapshot        = snapshot;
             existing.personalTracking = true;
             existing.stabilizing     = true;
             existing.idleStrikes     = 0;
             existing.errorStrikes    = 0;
+            existing.session         = freshSession();
         } else {
             trackers[userId] = {
                 eaId,
@@ -182,6 +232,7 @@ async function startPersonalTracking(userId, guildId, client) {
                 lastDetectedAt:   null,
                 idleStrikes:      0,
                 errorStrikes:     0,
+                session:          freshSession(),
             };
         }
         saveTrackers(trackers);
@@ -200,13 +251,20 @@ async function stopPersonalTracking(userId, guildId, client) {
     if (!tracker || tracker.personalTracking === false) return;
 
     tracker.personalTracking = false;
+    const ses  = tracker.session;
+    const eaId = tracker.eaId;
 
     if (tracker.tournamentId) {
+        delete tracker.session;
         saveTrackers(trackers);
     } else {
         delete trackers[userId];
         saveTrackers(trackers);
         await removeTrackingRole(client, guildId, userId);
+    }
+
+    if (ses && ses.games > 0) {
+        await dmUser(client, userId, { embeds: [buildSessionSummaryEmbed(eaId, ses)] });
     }
 }
 
@@ -261,10 +319,16 @@ async function runLiveTrackerTick(client) {
             if (!current) {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
                 if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
-                    delete trackers[userId];
-                    if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
-                    await dmUser(client, userId,
-                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Rejoin a voice channel to resume.`);
+                    if (memberInVoice(client, tracker.guildId, userId)) {
+                        // Still in voice — keep the entry alive; voice-leave is the real cleanup trigger
+                        tracker.idleStrikes = 0;
+                    } else {
+                        // Left voice (event missed, or stale entry) — clean up
+                        delete trackers[userId];
+                        if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
+                        await dmUser(client, userId,
+                            `⏸️ Live tracking paused for **${tracker.eaId}**. Hop back into a voice channel to resume.`);
+                    }
                 }
                 continue;
             }
@@ -282,24 +346,20 @@ async function runLiveTrackerTick(client) {
 
             if (matchesDelta > 0) {
                 const delta = {
-                    matches:               matchesDelta,
-                    kills:                 current.kills                 - prev.kills,
-                    deaths:                current.deaths                - prev.deaths,
-                    wins:                  current.wins                  - prev.wins,
-                    losses:                current.losses                - prev.losses,
-                    killAssists:           current.killAssists           - prev.killAssists,
-                    headshotKills:         current.headshotKills         - prev.headshotKills,
-                    revives:               current.revives               - prev.revives,
-                    spots:                 current.spots                 - prev.spots,
-                    objectivesCaptured:    current.objectivesCaptured    - prev.objectivesCaptured,
-                    objectivesDefended:    current.objectivesDefended    - prev.objectivesDefended,
-                    objectivesDestroyed:   current.objectivesDestroyed   - prev.objectivesDestroyed,
-                    vehiclesDestroyedWith: current.vehiclesDestroyedWith - prev.vehiclesDestroyedWith,
-                    scoreIn:               current.scoreIn               - prev.scoreIn,
-                    secondsPlayed:         current.secondsPlayed         - prev.secondsPlayed,
-                    humanDamage:           current.humanDamage   - (prev.humanDamage   ?? current.humanDamage),
-                    vehicleDamage:         current.vehicleDamage - (prev.vehicleDamage ?? current.vehicleDamage),
-                    vehicleKills:          current.vehicleKills  - (prev.vehicleKills  ?? current.vehicleKills),
+                    matches:       matchesDelta,
+                    kills:         current.kills         - prev.kills,
+                    deaths:        current.deaths        - prev.deaths,
+                    wins:          current.wins          - prev.wins,
+                    losses:        current.losses        - prev.losses,
+                    killAssists:   current.killAssists   - prev.killAssists,
+                    headshotKills: current.headshotKills - prev.headshotKills,
+                    revives:       current.revives       - prev.revives,
+                    spots:         current.spots         - prev.spots,
+                    scoreIn:       current.scoreIn       - prev.scoreIn,
+                    secondsPlayed: current.secondsPlayed - prev.secondsPlayed,
+                    humanDamage:   current.humanDamage   - (prev.humanDamage   ?? current.humanDamage),
+                    vehicleDamage: current.vehicleDamage - (prev.vehicleDamage ?? current.vehicleDamage),
+                    vehicleKills:  current.vehicleKills  - (prev.vehicleKills  ?? current.vehicleKills),
                 };
 
                 const embed = buildDetectionEmbed(tracker.eaId, userId, delta, current, matchesDelta);
@@ -316,8 +376,25 @@ async function runLiveTrackerTick(client) {
                         saveTournament(tournament);
                     }
                 }
-                if (isPersonal && trackerChannel) {
-                    await trackerChannel.send({ embeds: [embed] }).catch(err => console.error('[liveTracker] post failed:', err));
+                if (isPersonal) {
+                    const ses = tracker.session ?? (tracker.session = freshSession());
+                    ses.games     += matchesDelta;
+                    ses.kills     += delta.kills;
+                    ses.deaths    += delta.deaths;
+                    ses.assists   += delta.killAssists;
+                    ses.headshots += delta.headshotKills;
+                    ses.revives   += delta.revives;
+                    ses.score     += delta.scoreIn;
+                    ses.wins      += delta.wins;
+                    if (matchesDelta === 1 && current.lastPlacement > 0) {
+                        ses.bestPlacement = ses.bestPlacement == null
+                            ? current.lastPlacement
+                            : Math.min(ses.bestPlacement, current.lastPlacement);
+                    }
+                    if (trackerChannel) {
+                        await trackerChannel.send({ embeds: [embed], allowedMentions: { parse: [] } })
+                            .catch(err => console.error('[liveTracker] post failed:', err));
+                    }
                 }
 
                 tracker.snapshot       = current;
@@ -326,10 +403,17 @@ async function runLiveTrackerTick(client) {
             } else {
                 tracker.idleStrikes = (tracker.idleStrikes ?? 0) + 1;
                 if (tracker.idleStrikes >= IDLE_STRIKES && !tracker.tournamentId) {
-                    delete trackers[userId];
-                    if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
-                    await dmUser(client, userId,
-                        `⏸️ Live tracking paused for **${tracker.eaId}** after 45 min idle. Rejoin a voice channel to resume.`);
+                    if (memberInVoice(client, tracker.guildId, userId)) {
+                        // Still in voice — re-baseline silently and keep tracking
+                        tracker.snapshot    = current;
+                        tracker.idleStrikes = 0;
+                    } else {
+                        // Left voice (event missed, or stale entry) — clean up
+                        delete trackers[userId];
+                        if (tracker.guildId) await removeTrackingRole(client, tracker.guildId, userId);
+                        await dmUser(client, userId,
+                            `⏸️ Live tracking paused for **${tracker.eaId}**. Hop back into a voice channel to resume.`);
+                    }
                 }
             }
         }
